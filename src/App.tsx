@@ -3,6 +3,8 @@ import { LibrarySection } from './components/LibrarySection'
 import { TrainerSection } from './components/TrainerSection'
 import { CrosswordCatalog } from './components/CrosswordCatalog'
 import { CrosswordGame } from './components/CrosswordGame'
+import { FortuneWheelGame } from './components/FortuneWheelGame'
+import { TimedQuizGame } from './components/TimedQuizGame'
 import { crosswordPuzzles, type CrosswordPuzzle } from './data/crosswordData'
 import {
   loadCrosswordProgress,
@@ -132,11 +134,11 @@ const gameCards: GameCard[] = [
   },
   {
     id: 'game-wheel',
-    title: 'Колесо случайных вопросов',
+    title: 'Колесо-фортуна',
     description:
-      'Динамичная викторина со случайным выбором вопроса по различным разделам права для разносторонней самопроверки и тренировки реакции.',
-    tag: 'Случайный сектор',
-    status: 'Проектирование',
+      'Динамичная викторина со случайным выбором одного из 10 секторов по Общей и Особенной частям ГК РК для самопроверки без повторения вопросов.',
+    tag: '10 секторов · ГК РК',
+    status: 'Доступно',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="10" />
@@ -152,9 +154,9 @@ const gameCards: GameCard[] = [
     id: 'game-time',
     title: 'Испытание на время',
     description:
-      'Блиц-раунд на скорость мышления и умение оперативно определять базовые правовые институты и юридические категории.',
-    tag: 'Блиц-режим',
-    status: 'Проектирование',
+      'Ответьте на 12 вопросов по Общей и Особенной частям Гражданского кодекса РК за 5 минут с подробным разбором каждого ответа.',
+    tag: '12 вопросов · 5 минут',
+    status: 'Доступно',
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="10" />
@@ -245,7 +247,9 @@ const demoAchievements: AchievementItem[] = [
 function App() {
   const [activeSection, setActiveSection] = useState<string>('home')
   const [theme, setTheme] = useState<'light' | 'dark'>(readStoredTheme)
-  const [gamesView, setGamesView] = useState<'menu' | 'crosswords-catalog' | 'crossword-play'>('menu')
+  const [gamesView, setGamesView] = useState<
+    'menu' | 'crosswords-catalog' | 'crossword-play' | 'wheel-play' | 'time-play'
+  >('menu')
   const [activeCrosswordId, setActiveCrosswordId] = useState<string | null>(null)
   const [crosswordProgress, setCrosswordProgress] = useState<CrosswordProgressMap>(
     loadCrosswordProgress
@@ -338,12 +342,40 @@ function App() {
       }
       return 'games'
     }
+    if (rawHash === 'games/wheel') {
+      setGamesView('wheel-play')
+      setActiveCrosswordId(null)
+      return 'games'
+    }
+    if (rawHash === 'games/time') {
+      setGamesView('time-play')
+      setActiveCrosswordId(null)
+      return 'games'
+    }
     if (rawHash === 'games') {
       setGamesView('menu')
       setActiveCrosswordId(null)
       return 'games'
     }
     return rawHash
+  }
+
+  const openWheelGame = () => {
+    setActiveCrosswordId(null)
+    setGamesView('wheel-play')
+    setActiveSection('games')
+    window.history.pushState(null, '', '#games/wheel')
+    const el = document.getElementById('games')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const openTimedGame = () => {
+    setActiveCrosswordId(null)
+    setGamesView('time-play')
+    setActiveSection('games')
+    window.history.pushState(null, '', '#games/time')
+    const el = document.getElementById('games')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
   }
 
   const openCrosswordsCatalog = () => {
@@ -698,21 +730,32 @@ function App() {
                 <div className="games-grid">
                   {gameCards.map((card, index) => {
                     const isCrosswordCard = card.id === 'game-crossword'
+                    const isWheelCard = card.id === 'game-wheel'
+                    const isTimeCard = card.id === 'game-time'
+                    const isInteractiveCard = isCrosswordCard || isWheelCard || isTimeCard
+                    const handleOpenCard = isCrosswordCard
+                      ? openCrosswordsCatalog
+                      : isWheelCard
+                      ? openWheelGame
+                      : isTimeCard
+                      ? openTimedGame
+                      : undefined
+
                     return (
                       <article
                         key={card.id}
                         className={`edu-card edu-card-tone-${(index + 1) % 3} ${
-                          isCrosswordCard ? 'game-card-interactive' : ''
+                          isInteractiveCard ? 'game-card-interactive' : ''
                         }`}
-                        onClick={isCrosswordCard ? openCrosswordsCatalog : undefined}
-                        role={isCrosswordCard ? 'button' : undefined}
-                        tabIndex={isCrosswordCard ? 0 : undefined}
+                        onClick={handleOpenCard}
+                        role={isInteractiveCard ? 'button' : undefined}
+                        tabIndex={isInteractiveCard ? 0 : undefined}
                         onKeyDown={
-                          isCrosswordCard
+                          handleOpenCard
                             ? (e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault()
-                                  openCrosswordsCatalog()
+                                  handleOpenCard()
                                 }
                               }
                             : undefined
@@ -720,6 +763,10 @@ function App() {
                         aria-label={
                           isCrosswordCard
                             ? 'Открыть каталог юридических кроссвордов'
+                            : isWheelCard
+                            ? 'Открыть игру Колесо-фортуна'
+                            : isTimeCard
+                            ? 'Открыть игру Испытание на время'
                             : undefined
                         }
                       >
@@ -748,6 +795,30 @@ function App() {
                               <span>Открыть кроссворды</span>
                               <span aria-hidden="true">→</span>
                             </button>
+                          ) : isWheelCard ? (
+                            <button
+                              type="button"
+                              className="card-action-btn primary-start-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openWheelGame()
+                              }}
+                            >
+                              <span>Крутить колесо</span>
+                              <span aria-hidden="true">→</span>
+                            </button>
+                          ) : isTimeCard ? (
+                            <button
+                              type="button"
+                              className="card-action-btn primary-start-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openTimedGame()
+                              }}
+                            >
+                              <span>Открыть испытание</span>
+                              <span aria-hidden="true">→</span>
+                            </button>
                           ) : (
                             <span className="card-status-pill">
                               <span className="status-dot" aria-hidden="true" />
@@ -763,7 +834,7 @@ function App() {
                 <div className="section-status-banner">
                   <span className="status-dot" aria-hidden="true" />
                   <span>
-                    Доступен интерактивный модуль «Юридический кроссворд» (3 тематических кроссворда по ГК РК с сохранением прогресса и XP). Остальные игровые форматы находятся в разработке.
+                    Все три образовательные игры активны: «Юридический кроссворд», «Колесо-фортуна» (10 секторов) и «Испытание на время» (12 вопросов за 5 минут по ГК РК).
                   </span>
                 </div>
               </>
@@ -785,6 +856,14 @@ function App() {
                 onBackToCatalog={openCrosswordsCatalog}
                 onRecordResult={handleRecordCrosswordResult}
               />
+            )}
+
+            {gamesView === 'wheel-play' && (
+              <FortuneWheelGame onBackToGames={backToGamesMenu} />
+            )}
+
+            {gamesView === 'time-play' && (
+              <TimedQuizGame onBackToGames={backToGamesMenu} />
             )}
           </div>
         </section>
