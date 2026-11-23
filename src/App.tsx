@@ -29,6 +29,16 @@ interface AchievementItem {
   icon: string
 }
 
+const THEME_STORAGE_KEY = 'lqkz-theme'
+
+function readStoredTheme(): 'light' | 'dark' {
+  try {
+    return window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light'
+  } catch {
+    return 'light'
+  }
+}
+
 const navItems = [
   { id: 'home', label: 'Главная' },
   { id: 'library', label: 'Правовая библиотека' },
@@ -226,6 +236,26 @@ const demoAchievements: AchievementItem[] = [
 
 function App() {
   const [activeSection, setActiveSection] = useState<string>('home')
+  const [theme, setTheme] = useState<'light' | 'dark'>(readStoredTheme)
+  const unlockedAchievements = demoAchievements.filter((item) => item.completed).length
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    document.documentElement.style.colorScheme = theme
+    const themeMeta = document.querySelector('meta[name="theme-color"]')
+    if (themeMeta) {
+      themeMeta.setAttribute('content', theme === 'dark' ? '#0c1412' : '#ecf5f0')
+    }
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+    } catch {
+      /* локальное хранилище может быть недоступно */
+    }
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme((current) => (current === 'dark' ? 'light' : 'dark'))
+  }
 
   useEffect(() => {
     const sectionIds = ['home', 'library', 'trainer', 'practice', 'games', 'achievements']
@@ -309,13 +339,45 @@ function App() {
           ))}
         </nav>
 
-        <a
-          className="nav-cta"
-          href="#library"
-          onClick={(e) => handleNavClick(e, 'library')}
-        >
-          К разделам <span aria-hidden="true">↗</span>
-        </a>
+        <div className="topbar-actions">
+          <button
+            type="button"
+            className={`theme-toggle ${theme === 'dark' ? 'is-dark' : 'is-light'}`}
+            onClick={toggleTheme}
+            aria-pressed={theme === 'dark'}
+            aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
+            title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+          >
+            <span className="theme-toggle-icon" aria-hidden="true">
+              {theme === 'dark' ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2" />
+                  <path d="M12 20v2" />
+                  <path d="m4.93 4.93 1.41 1.41" />
+                  <path d="m17.66 17.66 1.41 1.41" />
+                  <path d="M2 12h2" />
+                  <path d="M20 12h2" />
+                  <path d="m6.34 17.66-1.41 1.41" />
+                  <path d="m19.07 4.93-1.41 1.41" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                </svg>
+              )}
+            </span>
+            <span className="theme-toggle-label">{theme === 'dark' ? 'Светлая' : 'Тёмная'}</span>
+          </button>
+
+          <a
+            className="nav-cta"
+            href="#library"
+            onClick={(e) => handleNavClick(e, 'library')}
+          >
+            К разделам <span aria-hidden="true">↗</span>
+          </a>
+        </div>
       </header>
 
       <main>
@@ -419,8 +481,8 @@ function App() {
             </div>
 
             <div className="practice-grid">
-              {practiceCards.map((card) => (
-                <article key={card.id} className="edu-card">
+              {practiceCards.map((card, index) => (
+                <article key={card.id} className={`edu-card edu-card-tone-${index % 3}`}>
                   <div className="card-topline">
                     <span className="card-icon-badge" aria-hidden="true">
                       {card.icon}
@@ -474,8 +536,8 @@ function App() {
             </div>
 
             <div className="games-grid">
-              {gameCards.map((card) => (
-                <article key={card.id} className="edu-card">
+              {gameCards.map((card, index) => (
+                <article key={card.id} className={`edu-card edu-card-tone-${(index + 1) % 3}`}>
                   <div className="card-topline">
                     <span className="card-icon-badge" aria-hidden="true">
                       {card.icon}
@@ -538,7 +600,7 @@ function App() {
             {/* Метрики прогресса */}
             <div className="stats-grid">
               {demoStats.map((st) => (
-                <div key={st.id} className="stat-card">
+                <div key={st.id} className={`stat-card stat-card--${st.id.replace('stat-', '')}`}>
                   <div className="stat-card-top">
                     <span className="stat-icon-wrap" aria-hidden="true">
                       {st.icon}
@@ -549,8 +611,14 @@ function App() {
                   <span className="stat-value">{st.value}</span>
                   <span className="stat-subtext">{st.subtext}</span>
                   {typeof st.progress === 'number' && (
-                    <div className="stat-progress-bar-wrap" aria-label="Прогресс до следующего уровня">
-                      <div className="stat-progress-bar-fill" style={{ width: `${st.progress}%` }} />
+                    <div className="stat-progress">
+                      <div className="stat-progress-meta">
+                        <span>До следующего уровня</span>
+                        <span>{st.progress}%</span>
+                      </div>
+                      <div className="stat-progress-bar-wrap" aria-label="Прогресс до следующего уровня">
+                        <div className="stat-progress-bar-fill" style={{ width: `${st.progress}%` }} />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -560,8 +628,25 @@ function App() {
             {/* Список достижений */}
             <div className="achievements-box">
               <div className="achievements-box-header">
-                <h3 className="achievements-box-title">Список достижений</h3>
-                <span className="demo-tag">Пример данных</span>
+                <div className="achievements-heading-copy">
+                  <h3 className="achievements-box-title">Список достижений</h3>
+                  <p className="achievements-box-note">
+                    Открыто {unlockedAchievements} из {demoAchievements.length}
+                  </p>
+                </div>
+                <div className="achievements-summary">
+                  <span className="demo-tag">Пример данных</span>
+                  <div
+                    className="achievements-meter"
+                    role="img"
+                    aria-label={`Открыто ${unlockedAchievements} из ${demoAchievements.length} достижений`}
+                  >
+                    <span
+                      className="achievements-meter-fill"
+                      style={{ width: `${(unlockedAchievements / demoAchievements.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
               </div>
               <div className="achievements-grid">
                 {demoAchievements.map((ach) => (
