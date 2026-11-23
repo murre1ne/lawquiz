@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { LibrarySection } from './components/LibrarySection'
 import { TrainerSection } from './components/TrainerSection'
+import { CrosswordCatalog } from './components/CrosswordCatalog'
+import { CrosswordGame } from './components/CrosswordGame'
+import { crosswordPuzzles, type CrosswordPuzzle } from './data/crosswordData'
+import {
+  loadCrosswordProgress,
+  recordCrosswordResult,
+  type CrosswordProgressMap,
+} from './data/crosswordProgress'
 
 interface PracticeCard {
   id: string
@@ -237,7 +245,140 @@ const demoAchievements: AchievementItem[] = [
 function App() {
   const [activeSection, setActiveSection] = useState<string>('home')
   const [theme, setTheme] = useState<'light' | 'dark'>(readStoredTheme)
-  const unlockedAchievements = demoAchievements.filter((item) => item.completed).length
+  const [gamesView, setGamesView] = useState<'menu' | 'crosswords-catalog' | 'crossword-play'>('menu')
+  const [activeCrosswordId, setActiveCrosswordId] = useState<string | null>(null)
+  const [crosswordProgress, setCrosswordProgress] = useState<CrosswordProgressMap>(
+    loadCrosswordProgress
+  )
+
+  const completedCrosswordsCount = crosswordPuzzles.filter(
+    (puzzle) => crosswordProgress[puzzle.id]?.completed
+  ).length
+  const totalCrosswordXp = crosswordPuzzles.reduce(
+    (sum, puzzle) => sum + (crosswordProgress[puzzle.id]?.xpEarned ?? 0),
+    0
+  )
+
+  const baseXp = 420
+  const totalXp = baseXp + totalCrosswordXp
+  const levelOffset = totalXp - 225
+  const currentLevel = Math.floor(levelOffset / 300) + 2
+  const currentLevelProgress = Math.min(100, Math.round(((levelOffset % 300) / 300) * 100))
+
+  const liveStats = demoStats.map((st) => {
+    if (st.id === 'stat-tasks') {
+      return {
+        ...st,
+        value: `${14 + completedCrosswordsCount} / 45`,
+        subtext:
+          completedCrosswordsCount > 0
+            ? `Включая пройденных кроссвордов: ${completedCrosswordsCount}`
+            : st.subtext,
+      }
+    }
+    if (st.id === 'stat-score') {
+      return {
+        ...st,
+        value: `${totalXp} XP`,
+        subtext:
+          totalCrosswordXp > 0
+            ? `Из них +${totalCrosswordXp} XP за кроссворды`
+            : st.subtext,
+      }
+    }
+    if (st.id === 'stat-level') {
+      return {
+        ...st,
+        value: `Уровень ${currentLevel}`,
+        progress: currentLevelProgress,
+      }
+    }
+    return st
+  })
+
+  const liveAchievements = demoAchievements.map((ach) => {
+    if (ach.id !== 'ach-4') return ach
+    if (completedCrosswordsCount >= 1) {
+      return {
+        ...ach,
+        completed: true,
+        status: 'Разблокировано',
+      }
+    }
+    if (totalCrosswordXp > 0) {
+      return {
+        ...ach,
+        completed: false,
+        status: 'В процессе',
+      }
+    }
+    return ach
+  })
+
+  const unlockedAchievements = liveAchievements.filter((item) => item.completed).length
+  const activeCrossword =
+    crosswordPuzzles.find((puzzle) => puzzle.id === activeCrosswordId) ?? null
+
+  const syncFromHash = () => {
+    const rawHash = window.location.hash.replace('#', '')
+    if (rawHash === 'games/crosswords') {
+      setGamesView('crosswords-catalog')
+      setActiveCrosswordId(null)
+      return 'games'
+    }
+    if (rawHash.startsWith('games/crosswords/')) {
+      const id = rawHash.replace('games/crosswords/', '')
+      const exists = crosswordPuzzles.some((p) => p.id === id)
+      if (exists) {
+        setActiveCrosswordId(id)
+        setGamesView('crossword-play')
+      } else {
+        setActiveCrosswordId(null)
+        setGamesView('crosswords-catalog')
+      }
+      return 'games'
+    }
+    if (rawHash === 'games') {
+      setGamesView('menu')
+      setActiveCrosswordId(null)
+      return 'games'
+    }
+    return rawHash
+  }
+
+  const openCrosswordsCatalog = () => {
+    setActiveCrosswordId(null)
+    setGamesView('crosswords-catalog')
+    setActiveSection('games')
+    window.history.pushState(null, '', '#games/crosswords')
+    const el = document.getElementById('games')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const openCrosswordPuzzle = (puzzle: CrosswordPuzzle) => {
+    setActiveCrosswordId(puzzle.id)
+    setGamesView('crossword-play')
+    setActiveSection('games')
+    window.history.pushState(null, '', `#games/crosswords/${puzzle.id}`)
+    const el = document.getElementById('games')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const backToGamesMenu = () => {
+    setActiveCrosswordId(null)
+    setGamesView('menu')
+    window.history.pushState(null, '', '#games')
+  }
+
+  const handleRecordCrosswordResult = (
+    puzzleId: string,
+    solvedWordNumbers: number[],
+    totalWords: number
+  ) => {
+    const res = recordCrosswordResult(crosswordProgress, puzzleId, solvedWordNumbers, totalWords)
+    setCrosswordProgress(res.nextMap)
+    return { xpGainedNow: res.xpGainedNow, alreadyMaxed: res.alreadyMaxed }
+  }
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -289,20 +430,37 @@ function App() {
   }, [])
 
   useEffect(() => {
-    const hash = window.location.hash.replace('#', '')
-    if (hash && ['home', 'library', 'trainer', 'practice', 'games', 'achievements'].includes(hash)) {
-      const target = document.getElementById(hash)
+    const targetSection = syncFromHash()
+    if (
+      targetSection &&
+      ['home', 'library', 'trainer', 'practice', 'games', 'achievements'].includes(targetSection)
+    ) {
+      const target = document.getElementById(targetSection)
       if (target) {
         setTimeout(() => {
           target.scrollIntoView({ behavior: 'smooth' })
-          setActiveSection(hash)
+          setActiveSection(targetSection)
         }, 120)
       }
+    }
+
+    const handlePopOrHash = () => {
+      syncFromHash()
+    }
+    window.addEventListener('popstate', handlePopOrHash)
+    window.addEventListener('hashchange', handlePopOrHash)
+    return () => {
+      window.removeEventListener('popstate', handlePopOrHash)
+      window.removeEventListener('hashchange', handlePopOrHash)
     }
   }, [])
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
     e.preventDefault()
+    if (targetId === 'games') {
+      setGamesView('menu')
+      setActiveCrosswordId(null)
+    }
     const target = document.getElementById(targetId)
     if (target) {
       target.scrollIntoView({ behavior: 'smooth' })
@@ -535,31 +693,99 @@ function App() {
               </div>
             </div>
 
-            <div className="games-grid">
-              {gameCards.map((card, index) => (
-                <article key={card.id} className={`edu-card edu-card-tone-${(index + 1) % 3}`}>
-                  <div className="card-topline">
-                    <span className="card-icon-badge" aria-hidden="true">
-                      {card.icon}
-                    </span>
-                    <span className="card-pill-tag">{card.tag}</span>
-                  </div>
-                  <h3 className="card-heading">{card.title}</h3>
-                  <p className="edu-card-desc">{card.description}</p>
-                  <div className="card-action-row">
-                    <span className="card-status-pill">
-                      <span className="status-dot" aria-hidden="true" />
-                      <span>{card.status}</span>
-                    </span>
-                  </div>
-                </article>
-              ))}
-            </div>
+            {gamesView === 'menu' && (
+              <>
+                <div className="games-grid">
+                  {gameCards.map((card, index) => {
+                    const isCrosswordCard = card.id === 'game-crossword'
+                    return (
+                      <article
+                        key={card.id}
+                        className={`edu-card edu-card-tone-${(index + 1) % 3} ${
+                          isCrosswordCard ? 'game-card-interactive' : ''
+                        }`}
+                        onClick={isCrosswordCard ? openCrosswordsCatalog : undefined}
+                        role={isCrosswordCard ? 'button' : undefined}
+                        tabIndex={isCrosswordCard ? 0 : undefined}
+                        onKeyDown={
+                          isCrosswordCard
+                            ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  openCrosswordsCatalog()
+                                }
+                              }
+                            : undefined
+                        }
+                        aria-label={
+                          isCrosswordCard
+                            ? 'Открыть каталог юридических кроссвордов'
+                            : undefined
+                        }
+                      >
+                        <div className="card-topline">
+                          <span className="card-icon-badge" aria-hidden="true">
+                            {card.icon}
+                          </span>
+                          <span className="card-pill-tag">
+                            {isCrosswordCard
+                              ? `${crosswordPuzzles.length} кроссворда · ${completedCrosswordsCount}/${crosswordPuzzles.length}`
+                              : card.tag}
+                          </span>
+                        </div>
+                        <h3 className="card-heading">{card.title}</h3>
+                        <p className="edu-card-desc">{card.description}</p>
+                        <div className="card-action-row">
+                          {isCrosswordCard ? (
+                            <button
+                              type="button"
+                              className="card-action-btn primary-start-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openCrosswordsCatalog()
+                              }}
+                            >
+                              <span>Открыть кроссворды</span>
+                              <span aria-hidden="true">→</span>
+                            </button>
+                          ) : (
+                            <span className="card-status-pill">
+                              <span className="status-dot" aria-hidden="true" />
+                              <span>{card.status}</span>
+                            </span>
+                          )}
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
 
-            <div className="section-status-banner">
-              <span className="status-dot" aria-hidden="true" />
-              <span>Образовательные игровые форматы спроектированы. Игровая механика будет запущена после наполнения базы вопросов.</span>
-            </div>
+                <div className="section-status-banner">
+                  <span className="status-dot" aria-hidden="true" />
+                  <span>
+                    Доступен интерактивный модуль «Юридический кроссворд» (3 тематических кроссворда по ГК РК с сохранением прогресса и XP). Остальные игровые форматы находятся в разработке.
+                  </span>
+                </div>
+              </>
+            )}
+
+            {gamesView === 'crosswords-catalog' && (
+              <CrosswordCatalog
+                progressMap={crosswordProgress}
+                onSelectPuzzle={openCrosswordPuzzle}
+                onBackToGames={backToGamesMenu}
+              />
+            )}
+
+            {gamesView === 'crossword-play' && activeCrossword && (
+              <CrosswordGame
+                key={activeCrossword.id}
+                puzzle={activeCrossword}
+                progress={crosswordProgress[activeCrossword.id]}
+                onBackToCatalog={openCrosswordsCatalog}
+                onRecordResult={handleRecordCrosswordResult}
+              />
+            )}
           </div>
         </section>
 
@@ -599,13 +825,15 @@ function App() {
 
             {/* Метрики прогресса */}
             <div className="stats-grid">
-              {demoStats.map((st) => (
+              {liveStats.map((st) => (
                 <div key={st.id} className={`stat-card stat-card--${st.id.replace('stat-', '')}`}>
                   <div className="stat-card-top">
                     <span className="stat-icon-wrap" aria-hidden="true">
                       {st.icon}
                     </span>
-                    <span className="demo-tag">Пример данных</span>
+                    <span className="demo-tag">
+                      {totalCrosswordXp > 0 ? 'Обновлено + кроссворды' : 'Пример данных'}
+                    </span>
                   </div>
                   <span className="stat-label">{st.label}</span>
                   <span className="stat-value">{st.value}</span>
@@ -631,25 +859,27 @@ function App() {
                 <div className="achievements-heading-copy">
                   <h3 className="achievements-box-title">Список достижений</h3>
                   <p className="achievements-box-note">
-                    Открыто {unlockedAchievements} из {demoAchievements.length}
+                    Открыто {unlockedAchievements} из {liveAchievements.length}
                   </p>
                 </div>
                 <div className="achievements-summary">
-                  <span className="demo-tag">Пример данных</span>
+                  <span className="demo-tag">
+                    {completedCrosswordsCount > 0 ? 'Локальный прогресс' : 'Пример данных'}
+                  </span>
                   <div
                     className="achievements-meter"
                     role="img"
-                    aria-label={`Открыто ${unlockedAchievements} из ${demoAchievements.length} достижений`}
+                    aria-label={`Открыто ${unlockedAchievements} из ${liveAchievements.length} достижений`}
                   >
                     <span
                       className="achievements-meter-fill"
-                      style={{ width: `${(unlockedAchievements / demoAchievements.length) * 100}%` }}
+                      style={{ width: `${(unlockedAchievements / liveAchievements.length) * 100}%` }}
                     />
                   </div>
                 </div>
               </div>
               <div className="achievements-grid">
-                {demoAchievements.map((ach) => (
+                {liveAchievements.map((ach) => (
                   <div
                     key={ach.id}
                     className={`achievement-card ${ach.completed ? 'completed' : 'locked'}`}

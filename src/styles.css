@@ -4513,3 +4513,904 @@ html[data-theme="dark"] .disclaimer-link:hover,
 html[data-theme="dark"] .feedback-adilet-link:hover {
   color: #e7fff2;
 }
+
+/* =========================================
+   13. Игровая зона — Юридические кроссворды
+   ========================================= */
+
+.game-card-interactive {
+  cursor: pointer;
+}
+
+.game-card-interactive:focus-visible,
+.cw-catalog-card:focus-visible {
+  outline: 2px solid #1e7047;
+  outline-offset: 3px;
+}
+
+.cw-catalog-container,
+.cw-game-container {
+  width: 100%;
+  max-width: 100%;
+  animation: fadeInTrainer 0.28s ease;
+}
+
+.cw-catalog-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.interactive-mode-badge.cw-mode-badge {
+  background: #e8f7ee;
+  color: #16653f;
+  border-color: rgba(27, 122, 76, 0.26);
+}
+
+.cw-xp-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 750;
+  color: #92400e;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border: 1px solid rgba(217, 119, 6, 0.28);
+}
+
+.cw-catalog-intro {
+  padding: 24px 28px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.cw-catalog-intro-text {
+  flex: 1;
+  min-width: 240px;
+}
+
+.cw-catalog-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: #14281d;
+}
+
+.cw-catalog-desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #4b6154;
+}
+
+.cw-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.cw-catalog-card {
+  cursor: pointer;
+}
+
+.cw-catalog-card.cw-card-tone-0 {
+  --card-accent: #1b7a4c;
+  --card-accent-2: #10b981;
+  --card-surface: linear-gradient(155deg, #ffffff 0%, #e7f8ef 100%);
+  --card-surface-dark: linear-gradient(160deg, #163729 0%, #10251c 100%);
+  --card-border-light: rgba(27, 122, 76, 0.24);
+  --card-border-dark: rgba(52, 211, 153, 0.3);
+  --card-icon-bg: linear-gradient(145deg, #ffffff, #ccf2de);
+  --card-icon-bg-dark: linear-gradient(145deg, #21573f, #143627);
+  --card-pill-bg: rgba(27, 122, 76, 0.12);
+  --card-pill-bg-dark: rgba(52, 211, 153, 0.16);
+  --card-pill-text: #15623d;
+  --card-pill-text-dark: #a7f3d0;
+}
+
+.cw-catalog-card.cw-card-tone-1 {
+  --card-accent: #0284c7;
+  --card-accent-2: #06b6d4;
+  --card-surface: linear-gradient(155deg, #ffffff 0%, #e6f5fe 100%);
+  --card-surface-dark: linear-gradient(160deg, #123146 0%, #0d2130 100%);
+  --card-border-light: rgba(2, 132, 199, 0.24);
+  --card-border-dark: rgba(56, 189, 248, 0.3);
+  --card-icon-bg: linear-gradient(145deg, #ffffff, #ccecfc);
+  --card-icon-bg-dark: linear-gradient(145deg, #194b6b, #103046);
+  --card-pill-bg: rgba(2, 132, 199, 0.12);
+  --card-pill-bg-dark: rgba(56, 189, 248, 0.17);
+  --card-pill-text: #0369a1;
+  --card-pill-text-dark: #bae6fd;
+}
+
+.cw-catalog-card.cw-card-tone-2 {
+  --card-accent: #0d9488;
+  --card-accent-2: #14b8a6;
+  --card-surface: linear-gradient(155deg, #ffffff 0%, #e4f8f5 100%);
+  --card-surface-dark: linear-gradient(160deg, #113534 0%, #0b2423 100%);
+  --card-border-light: rgba(13, 148, 136, 0.24);
+  --card-border-dark: rgba(45, 212, 191, 0.3);
+  --card-icon-bg: linear-gradient(145deg, #ffffff, #c8f3ec);
+  --card-icon-bg-dark: linear-gradient(145deg, #175450, #0f3836);
+  --card-pill-bg: rgba(13, 148, 136, 0.12);
+  --card-pill-bg-dark: rgba(45, 212, 191, 0.17);
+  --card-pill-text: #0f766e;
+  --card-pill-text-dark: #99f6e4;
+}
+
+.cw-num-badge {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.cw-card-topic {
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--card-pill-text);
+  margin-bottom: 4px;
+}
+
+.cw-card-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.cw-meta-chip {
+  font-size: 11.5px;
+  font-weight: 650;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(28, 61, 41, 0.12);
+  color: #2f4b3a;
+}
+
+.cw-status-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.cw-status-idle {
+  background: rgba(100, 116, 139, 0.1);
+  color: #475569;
+  border-color: rgba(100, 116, 139, 0.2);
+}
+
+.cw-status-progress {
+  background: rgba(217, 119, 6, 0.14);
+  color: #92400e;
+  border-color: rgba(217, 119, 6, 0.3);
+}
+
+.cw-status-done {
+  background: rgba(22, 163, 74, 0.14);
+  color: #166534;
+  border-color: rgba(22, 163, 74, 0.3);
+}
+
+/* ── Игровая панель кроссворда ── */
+.cw-panel {
+  padding: 30px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.cw-header-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cw-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cw-topic-pill {
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.4px;
+  padding: 4px 11px;
+  border-radius: 6px;
+  background: rgba(27, 122, 76, 0.1);
+  color: #16653f;
+  border: 1px solid rgba(27, 122, 76, 0.2);
+}
+
+.cw-puzzle-title {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: #14281d;
+}
+
+.cw-puzzle-subtitle {
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #4c6255;
+}
+
+.cw-progress-fill {
+  background: linear-gradient(90deg, #1b7a4c 0%, #0ea5a4 60%, #10b981 100%);
+}
+
+/* Баннер активной подсказки */
+.cw-active-clue-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(232, 248, 239, 0.92), rgba(232, 245, 254, 0.88));
+  border: 1.5px solid rgba(27, 122, 76, 0.24);
+}
+
+.cw-active-clue-num {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #1b7a4c;
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.cw-active-clue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cw-active-clue-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1b6944;
+}
+
+.cw-active-clue-text {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.48;
+  color: #14281d;
+}
+
+/* Рабочая область: сетка + подсказки */
+.cw-workspace {
+  display: grid;
+  grid-template-columns: auto minmax(280px, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.cw-grid-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.cw-grid {
+  --cw-cell: 44px;
+  display: grid;
+  grid-template-columns: repeat(var(--cw-cols), var(--cw-cell));
+  gap: 4px;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(155deg, rgba(236, 246, 240, 0.92), rgba(232, 243, 250, 0.86));
+  border: 1.5px solid rgba(27, 122, 76, 0.16);
+  box-shadow: inset 0 2px 8px rgba(20, 56, 44, 0.05);
+  max-width: 100%;
+}
+
+.cw-cell-empty {
+  width: var(--cw-cell);
+  height: var(--cw-cell);
+  border-radius: 8px;
+  background: transparent;
+  pointer-events: none;
+}
+
+.cw-cell-active {
+  position: relative;
+  width: var(--cw-cell);
+  height: var(--cw-cell);
+  border-radius: 9px;
+  background: #ffffff;
+  border: 2px solid rgba(27, 122, 76, 0.28);
+  box-shadow: 0 2px 6px rgba(20, 56, 44, 0.06);
+  cursor: text;
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.14s ease;
+}
+
+.cw-cell-active.cw-cell-word {
+  background: #e6f7ee;
+  border-color: #2b8a5b;
+}
+
+.cw-cell-active.cw-cell-focused {
+  background: #d2f3e2;
+  border-color: #16653f;
+  box-shadow: 0 0 0 3px rgba(27, 122, 76, 0.24);
+  z-index: 2;
+  transform: scale(1.03);
+}
+
+.cw-cell-active.cw-cell-correct {
+  background: #dcfce7;
+  border-color: #16a34a;
+}
+
+.cw-cell-active.cw-cell-wrong {
+  background: #fee2e2;
+  border-color: #dc2626;
+}
+
+.cw-cell-active.cw-cell-focused.cw-cell-correct {
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.28);
+}
+
+.cw-cell-active.cw-cell-focused.cw-cell-wrong {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.28);
+}
+
+.cw-cell-number {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 9.5px;
+  font-weight: 800;
+  line-height: 1;
+  color: #1b6b45;
+  pointer-events: none;
+  user-select: none;
+}
+
+.cw-cell-input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-family: inherit;
+  font-size: 19px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #14281d;
+  padding: 6px 0 0;
+  outline: none;
+  caret-color: #1b7a4c;
+  cursor: text;
+}
+
+.cw-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.cw-keyboard-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #5b7063;
+  text-align: center;
+  max-width: 420px;
+}
+
+/* ── Колонка подсказок ── */
+.cw-clues-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cw-clues-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cw-clues-heading {
+  margin: 0;
+  font-size: 16.5px;
+  font-weight: 800;
+  color: #14281d;
+}
+
+.cw-clues-sub {
+  font-size: 12px;
+  color: #5a7062;
+}
+
+.cw-clues-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cw-clue-item {
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  padding: 13px 15px;
+  border-radius: 13px;
+  background: #ffffff;
+  border: 1.5px solid rgba(28, 61, 41, 0.13);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  transition: all 0.18s ease;
+}
+
+.cw-clue-item:hover {
+  border-color: #2b8a5b;
+  background: #f4fbf7;
+  transform: translateY(-1px);
+}
+
+.cw-clue-item.cw-clue-active {
+  border-color: #1b7a4c;
+  background: #e9f8f0;
+  box-shadow: 0 4px 14px rgba(27, 122, 76, 0.14);
+}
+
+.cw-clue-item.cw-clue-correct {
+  border-left: 4px solid #16a34a;
+  background: #f0fdf4;
+}
+
+.cw-clue-item.cw-clue-wrong {
+  border-left: 4px solid #dc2626;
+  background: #fef2f2;
+}
+
+.cw-clue-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.cw-clue-num {
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(27, 122, 76, 0.12);
+  color: #16653f;
+  font-weight: 800;
+}
+
+.cw-clue-dir {
+  color: #3e6150;
+}
+
+.cw-clue-article {
+  margin-left: auto;
+  color: #1b7a4c;
+  font-weight: 750;
+}
+
+.cw-clue-text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #1e3327;
+  font-weight: 500;
+}
+
+.cw-clue-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.cw-clue-len {
+  color: #5c7265;
+  font-weight: 600;
+}
+
+.cw-clue-badge-ok {
+  color: #15803d;
+  font-weight: 800;
+}
+
+.cw-clue-badge-err {
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+/* ── Блок результатов кроссворда ── */
+.cw-results-panel {
+  border-top: 1.5px solid rgba(27, 122, 76, 0.14);
+  padding-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: feedbackAppear 0.28s ease;
+}
+
+.cw-results-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 20px 22px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(236, 250, 242, 0.92), rgba(238, 247, 255, 0.88));
+  border: 1.5px solid rgba(27, 122, 76, 0.2);
+}
+
+.cw-results-score-wrap {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex: 1;
+  min-width: 240px;
+}
+
+.result-score-circle.cw-score-circle {
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, #1b7a4c 0%, #0ea5a4 100%);
+}
+
+.cw-score-circle .result-score-num {
+  font-size: 32px;
+  line-height: 88px;
+}
+
+.cw-results-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cw-results-badges-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cw-percent-pill {
+  font-size: 12px;
+  font-weight: 750;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(27, 122, 76, 0.12);
+  color: #16653f;
+}
+
+.cw-xp-gained-pill {
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+  border: 1px solid rgba(217, 119, 6, 0.35);
+}
+
+.cw-xp-neutral-pill {
+  font-size: 11.5px;
+  font-weight: 650;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
+}
+
+.cw-results-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  color: #14281d;
+}
+
+.cw-results-message {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: #3d5647;
+}
+
+.cw-results-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cw-review-section {
+  margin: 0;
+}
+
+.cw-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cw-review-source-row {
+  margin-top: 2px;
+}
+
+/* ── Адаптивность кроссвордов (1280px и 390px без горизонтального скролла) ── */
+@media (max-width: 960px) {
+  .cw-workspace {
+    grid-template-columns: 1fr;
+    gap: 22px;
+  }
+  .cw-grid-column {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .cw-catalog-intro {
+    padding: 18px 16px;
+  }
+  .cw-catalog-title {
+    font-size: 19px;
+  }
+  .cw-catalog-grid {
+    grid-template-columns: 1fr;
+  }
+  .cw-panel {
+    padding: 18px 12px;
+    gap: 16px;
+  }
+  .cw-puzzle-title {
+    font-size: 18.5px;
+  }
+  .cw-grid {
+    --cw-cell: min(38px, calc((100vw - 88px - (var(--cw-cols) - 1) * 3px) / var(--cw-cols)));
+    gap: 3px;
+    padding: 8px;
+  }
+  .cw-cell-number {
+    font-size: 8px;
+    top: 1px;
+    left: 2px;
+  }
+  .cw-cell-input {
+    font-size: 16px;
+    padding-top: 4px;
+  }
+  .cw-active-clue-banner {
+    padding: 12px 13px;
+    gap: 10px;
+  }
+  .cw-active-clue-text {
+    font-size: 13.5px;
+  }
+  .cw-controls-row {
+    flex-direction: column;
+  }
+  .cw-controls-row .interactive-action-btn,
+  .cw-results-actions .interactive-action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .cw-results-summary {
+    padding: 16px 14px;
+  }
+  .cw-results-score-wrap {
+    flex-direction: column;
+    text-align: center;
+  }
+  .cw-results-badges-line {
+    justify-content: center;
+  }
+  .cw-results-actions {
+    width: 100%;
+  }
+}
+
+/* ── Тёмная тема для кроссвордов ── */
+html[data-theme="dark"] .interactive-mode-badge.cw-mode-badge {
+  background: rgba(24, 58, 44, 0.92);
+  color: #a7f3d0;
+  border-color: rgba(52, 211, 153, 0.32);
+}
+
+html[data-theme="dark"] .cw-xp-summary-pill,
+html[data-theme="dark"] .cw-xp-gained-pill {
+  background: rgba(92, 66, 18, 0.65);
+  color: #fde68a;
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
+html[data-theme="dark"] .cw-catalog-title,
+html[data-theme="dark"] .cw-puzzle-title,
+html[data-theme="dark"] .cw-active-clue-text,
+html[data-theme="dark"] .cw-clues-heading,
+html[data-theme="dark"] .cw-clue-text,
+html[data-theme="dark"] .cw-results-title {
+  color: #eef6f1;
+}
+
+html[data-theme="dark"] .cw-catalog-desc,
+html[data-theme="dark"] .cw-puzzle-subtitle,
+html[data-theme="dark"] .cw-keyboard-hint,
+html[data-theme="dark"] .cw-clues-sub,
+html[data-theme="dark"] .cw-clue-dir,
+html[data-theme="dark"] .cw-clue-len,
+html[data-theme="dark"] .cw-results-message {
+  color: #b7c9be;
+}
+
+html[data-theme="dark"] .cw-card-topic {
+  color: var(--card-pill-text-dark);
+}
+
+html[data-theme="dark"] .cw-meta-chip {
+  background: rgba(10, 22, 18, 0.65);
+  border-color: rgba(142, 212, 171, 0.22);
+  color: #cfe4d7;
+}
+
+html[data-theme="dark"] .cw-status-idle {
+  background: rgba(148, 163, 184, 0.14);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.24);
+}
+
+html[data-theme="dark"] .cw-status-progress {
+  background: rgba(120, 78, 16, 0.45);
+  color: #fde68a;
+  border-color: rgba(251, 191, 36, 0.36);
+}
+
+html[data-theme="dark"] .cw-status-done {
+  background: rgba(22, 101, 52, 0.45);
+  color: #bbf7d0;
+  border-color: rgba(74, 222, 128, 0.36);
+}
+
+html[data-theme="dark"] .cw-topic-pill,
+html[data-theme="dark"] .cw-percent-pill,
+html[data-theme="dark"] .cw-clue-num {
+  background: rgba(52, 211, 153, 0.18);
+  color: #a7f3d0;
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+html[data-theme="dark"] .cw-xp-neutral-pill {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+
+html[data-theme="dark"] .cw-active-clue-banner {
+  background: linear-gradient(135deg, rgba(18, 48, 36, 0.92), rgba(16, 40, 56, 0.9));
+  border-color: rgba(52, 211, 153, 0.3);
+}
+
+html[data-theme="dark"] .cw-active-clue-meta,
+html[data-theme="dark"] .cw-clue-article {
+  color: #86efac;
+}
+
+html[data-theme="dark"] .cw-grid {
+  background: linear-gradient(155deg, rgba(12, 24, 21, 0.9), rgba(12, 22, 30, 0.9));
+  border-color: rgba(110, 231, 183, 0.2);
+}
+
+html[data-theme="dark"] .cw-cell-active {
+  background: #172a23;
+  border-color: rgba(110, 231, 183, 0.3);
+}
+
+html[data-theme="dark"] .cw-cell-active.cw-cell-word {
+  background: #1e4234;
+  border-color: #34d399;
+}
+
+html[data-theme="dark"] .cw-cell-active.cw-cell-focused {
+  background: #225440;
+  border-color: #6ee7b7;
+  box-shadow: 0 0 0 3px rgba(110, 231, 183, 0.26);
+}
+
+html[data-theme="dark"] .cw-cell-active.cw-cell-correct {
+  background: #143d29;
+  border-color: #22c55e;
+}
+
+html[data-theme="dark"] .cw-cell-active.cw-cell-wrong {
+  background: #471c1f;
+  border-color: #f87171;
+}
+
+html[data-theme="dark"] .cw-cell-number {
+  color: #86efac;
+}
+
+html[data-theme="dark"] .cw-cell-input {
+  color: #f0fdf4;
+  caret-color: #6ee7b7;
+}
+
+html[data-theme="dark"] .cw-clue-item {
+  background: #14231e;
+  border-color: rgba(142, 212, 171, 0.18);
+}
+
+html[data-theme="dark"] .cw-clue-item:hover {
+  background: #1b312a;
+  border-color: #34d399;
+}
+
+html[data-theme="dark"] .cw-clue-item.cw-clue-active {
+  background: #1a3b2e;
+  border-color: #6ee7b7;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+}
+
+html[data-theme="dark"] .cw-clue-item.cw-clue-correct {
+  background: #133322;
+  border-left-color: #22c55e;
+}
+
+html[data-theme="dark"] .cw-clue-item.cw-clue-wrong {
+  background: #38191b;
+  border-left-color: #f87171;
+}
+
+html[data-theme="dark"] .cw-clue-badge-ok {
+  color: #86efac;
+}
+
+html[data-theme="dark"] .cw-clue-badge-err {
+  color: #fca5a5;
+}
+
+html[data-theme="dark"] .cw-results-panel {
+  border-top-color: rgba(142, 212, 171, 0.18);
+}
+
+html[data-theme="dark"] .cw-results-summary {
+  background: linear-gradient(145deg, rgba(18, 44, 34, 0.92), rgba(16, 36, 50, 0.9));
+  border-color: rgba(110, 231, 183, 0.24);
+}
