@@ -1,14 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { LibrarySection } from './components/LibrarySection'
 import { TrainerSection } from './components/TrainerSection'
 import { CrosswordCatalog } from './components/CrosswordCatalog'
 import { CrosswordGame } from './components/CrosswordGame'
 import { FortuneWheelGame } from './components/FortuneWheelGame'
 import { TimedQuizGame } from './components/TimedQuizGame'
+import { ContractErrorPractice } from './components/ContractErrorPractice'
+import { LegalCasesCatalog } from './components/LegalCasesCatalog'
+import { LegalCasePlayer } from './components/LegalCasePlayer'
+import { ContractAnalysisCatalog } from './components/ContractAnalysisCatalog'
+import { ContractAnalysisViewer } from './components/ContractAnalysisViewer'
+import { LegalChatCases } from './components/LegalChatCases'
 import { crosswordPuzzles, type CrosswordPuzzle } from './data/crosswordData'
+import { legalCasesData, type LegalCaseScenario } from './data/legalCasesData'
 import {
+  contractAnalysisData,
+  type ContractAnalysisItem,
+} from './data/contractAnalysisData'
+import { legalChatCases, type LegalChatCase } from './data/legalChatCases'
+import {
+  completeContractAnalysis,
   loadCrosswordProgress,
   recordCrosswordResult,
+  recordLegalCaseResult,
+  recordLegalChatCaseResult,
+  saveContractAnalysisStep,
   type CrosswordProgressMap,
 } from './data/crosswordProgress'
 
@@ -108,6 +124,22 @@ const practiceCards: PracticeCard[] = [
         <line x1="3" y1="6" x2="3.01" y2="6" />
         <line x1="3" y1="12" x2="3.01" y2="12" />
         <line x1="3" y1="18" x2="3.01" y2="18" />
+      </svg>
+    ),
+  },
+  {
+    id: 'prac-scenarios',
+    title: 'Выбери развитие событий',
+    description: 'Принимай юридические решения и смотри, к чему они приводят.',
+    focus: '4 юридических дела',
+    status: 'Интерактив',
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="6" cy="6" r="3" />
+        <circle cx="18" cy="6" r="3" />
+        <circle cx="12" cy="18" r="3" />
+        <path d="M6 9v2a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V9" />
+        <path d="M12 15v0" />
       </svg>
     ),
   },
@@ -242,11 +274,32 @@ const demoAchievements: AchievementItem[] = [
     completed: false,
     icon: '🧩',
   },
+  {
+    id: 'ach-5',
+    title: 'Мастер правовых решений',
+    description: 'Прохождение всех четырёх интерактивных дел «Выбери развитие событий».',
+    status: 'Не начато',
+    completed: false,
+    icon: '⚖️',
+  },
 ]
 
 function App() {
   const [activeSection, setActiveSection] = useState<string>('home')
   const [theme, setTheme] = useState<'light' | 'dark'>(readStoredTheme)
+  const [practiceView, setPracticeView] = useState<
+    | 'menu'
+    | 'situations-catalog'
+    | 'situation-play'
+    | 'contract-errors'
+    | 'scenarios-catalog'
+    | 'scenario-play'
+    | 'analysis-catalog'
+    | 'analysis-play'
+  >('menu')
+  const [activeChatCaseId, setActiveChatCaseId] = useState<string | null>(null)
+  const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null)
+  const [activeAnalysisContractId, setActiveAnalysisContractId] = useState<string | null>(null)
   const [gamesView, setGamesView] = useState<
     'menu' | 'crosswords-catalog' | 'crossword-play' | 'wheel-play' | 'time-play'
   >('menu')
@@ -263,8 +316,40 @@ function App() {
     0
   )
 
+  const completedCasesCount = legalCasesData.filter(
+    (scenario) => crosswordProgress[scenario.id]?.completed
+  ).length
+  const totalCasesXp = legalCasesData.reduce(
+    (sum, scenario) => sum + (crosswordProgress[scenario.id]?.xpEarned ?? 0),
+    0
+  )
+
+  const completedContractsCount = contractAnalysisData.filter(
+    (contract) => crosswordProgress[contract.id]?.completed
+  ).length
+  const totalContractsXp = contractAnalysisData.reduce(
+    (sum, contract) => sum + (crosswordProgress[contract.id]?.xpEarned ?? 0),
+    0
+  )
+
+  const completedChatCasesCount = legalChatCases.filter(
+    (chatCase) => crosswordProgress[chatCase.id]?.completed
+  ).length
+  const totalChatCasesXp = legalChatCases.reduce(
+    (sum, chatCase) => sum + (crosswordProgress[chatCase.id]?.xpEarned ?? 0),
+    0
+  )
+
+  const totalEarnedLocalXp =
+    totalCrosswordXp + totalCasesXp + totalContractsXp + totalChatCasesXp
+  const totalCompletedLocalTasks =
+    completedCrosswordsCount +
+    completedCasesCount +
+    completedContractsCount +
+    completedChatCasesCount
+
   const baseXp = 420
-  const totalXp = baseXp + totalCrosswordXp
+  const totalXp = baseXp + totalEarnedLocalXp
   const levelOffset = totalXp - 225
   const currentLevel = Math.floor(levelOffset / 300) + 2
   const currentLevelProgress = Math.min(100, Math.round(((levelOffset % 300) / 300) * 100))
@@ -273,10 +358,10 @@ function App() {
     if (st.id === 'stat-tasks') {
       return {
         ...st,
-        value: `${14 + completedCrosswordsCount} / 45`,
+        value: `${14 + totalCompletedLocalTasks} / 45`,
         subtext:
-          completedCrosswordsCount > 0
-            ? `Включая пройденных кроссвордов: ${completedCrosswordsCount}`
+          totalCompletedLocalTasks > 0
+            ? `Завершено новых заданий: ${totalCompletedLocalTasks}`
             : st.subtext,
       }
     }
@@ -285,8 +370,8 @@ function App() {
         ...st,
         value: `${totalXp} XP`,
         subtext:
-          totalCrosswordXp > 0
-            ? `Из них +${totalCrosswordXp} XP за кроссворды`
+          totalEarnedLocalXp > 0
+            ? `Из них +${totalEarnedLocalXp} XP за пройденные практики и игры`
             : st.subtext,
       }
     }
@@ -301,20 +386,39 @@ function App() {
   })
 
   const liveAchievements = demoAchievements.map((ach) => {
-    if (ach.id !== 'ach-4') return ach
-    if (completedCrosswordsCount >= 1) {
-      return {
-        ...ach,
-        completed: true,
-        status: 'Разблокировано',
+    if (ach.id === 'ach-4') {
+      if (completedCrosswordsCount >= 1) {
+        return {
+          ...ach,
+          completed: true,
+          status: 'Разблокировано',
+        }
       }
+      if (totalCrosswordXp > 0) {
+        return {
+          ...ach,
+          completed: false,
+          status: 'В процессе',
+        }
+      }
+      return ach
     }
-    if (totalCrosswordXp > 0) {
-      return {
-        ...ach,
-        completed: false,
-        status: 'В процессе',
+    if (ach.id === 'ach-5') {
+      if (completedCasesCount >= legalCasesData.length) {
+        return {
+          ...ach,
+          completed: true,
+          status: 'Разблокировано',
+        }
       }
+      if (completedCasesCount > 0) {
+        return {
+          ...ach,
+          completed: false,
+          status: `В процессе (${completedCasesCount}/${legalCasesData.length})`,
+        }
+      }
+      return ach
     }
     return ach
   })
@@ -322,9 +426,102 @@ function App() {
   const unlockedAchievements = liveAchievements.filter((item) => item.completed).length
   const activeCrossword =
     crosswordPuzzles.find((puzzle) => puzzle.id === activeCrosswordId) ?? null
+  const activeScenario =
+    legalCasesData.find((scenario) => scenario.id === activeScenarioId) ?? null
+  const activeAnalysisContract =
+    contractAnalysisData.find((contract) => contract.id === activeAnalysisContractId) ?? null
+
+  const nextAnalysisContract: ContractAnalysisItem | null = (() => {
+    if (!activeAnalysisContract) return null
+    const idx = contractAnalysisData.findIndex((item) => item.id === activeAnalysisContract.id)
+    if (idx >= 0 && idx < contractAnalysisData.length - 1) {
+      return contractAnalysisData[idx + 1]
+    }
+    const firstUncompleted = contractAnalysisData.find(
+      (item) => item.id !== activeAnalysisContract.id && !crosswordProgress[item.id]?.completed
+    )
+    return firstUncompleted ?? contractAnalysisData[0]
+  })()
 
   const syncFromHash = () => {
     const rawHash = window.location.hash.replace('#', '')
+    if (rawHash === 'practice/situations') {
+      setPracticeView('situations-catalog')
+      setActiveChatCaseId(null)
+      setActiveScenarioId(null)
+      setActiveAnalysisContractId(null)
+      return 'practice'
+    }
+    if (rawHash.startsWith('practice/situations/')) {
+      const id = rawHash.replace('practice/situations/', '')
+      const exists = legalChatCases.some((c) => c.id === id)
+      setActiveScenarioId(null)
+      setActiveAnalysisContractId(null)
+      if (exists) {
+        setActiveChatCaseId(id)
+        setPracticeView('situation-play')
+      } else {
+        setActiveChatCaseId(null)
+        setPracticeView('situations-catalog')
+      }
+      return 'practice'
+    }
+    if (rawHash === 'practice/contract-errors') {
+      setPracticeView('contract-errors')
+      setActiveChatCaseId(null)
+      setActiveScenarioId(null)
+      setActiveAnalysisContractId(null)
+      return 'practice'
+    }
+    if (rawHash === 'practice/contract-analysis') {
+      setPracticeView('analysis-catalog')
+      setActiveChatCaseId(null)
+      setActiveScenarioId(null)
+      setActiveAnalysisContractId(null)
+      return 'practice'
+    }
+    if (rawHash.startsWith('practice/contract-analysis/')) {
+      const id = rawHash.replace('practice/contract-analysis/', '')
+      const exists = contractAnalysisData.some((c) => c.id === id)
+      setActiveChatCaseId(null)
+      setActiveScenarioId(null)
+      if (exists) {
+        setActiveAnalysisContractId(id)
+        setPracticeView('analysis-play')
+      } else {
+        setActiveAnalysisContractId(null)
+        setPracticeView('analysis-catalog')
+      }
+      return 'practice'
+    }
+    if (rawHash === 'practice/scenarios') {
+      setPracticeView('scenarios-catalog')
+      setActiveChatCaseId(null)
+      setActiveScenarioId(null)
+      setActiveAnalysisContractId(null)
+      return 'practice'
+    }
+    if (rawHash.startsWith('practice/scenarios/')) {
+      const id = rawHash.replace('practice/scenarios/', '')
+      const exists = legalCasesData.some((c) => c.id === id)
+      setActiveChatCaseId(null)
+      setActiveAnalysisContractId(null)
+      if (exists) {
+        setActiveScenarioId(id)
+        setPracticeView('scenario-play')
+      } else {
+        setActiveScenarioId(null)
+        setPracticeView('scenarios-catalog')
+      }
+      return 'practice'
+    }
+    if (rawHash === 'practice') {
+      setPracticeView('menu')
+      setActiveChatCaseId(null)
+      setActiveScenarioId(null)
+      setActiveAnalysisContractId(null)
+      return 'practice'
+    }
     if (rawHash === 'games/crosswords') {
       setGamesView('crosswords-catalog')
       setActiveCrosswordId(null)
@@ -358,6 +555,118 @@ function App() {
       return 'games'
     }
     return rawHash
+  }
+
+  const openSituationsCatalog = () => {
+    setActiveChatCaseId(null)
+    setActiveScenarioId(null)
+    setActiveAnalysisContractId(null)
+    setPracticeView('situations-catalog')
+    setActiveSection('practice')
+    window.history.pushState(null, '', '#practice/situations')
+    const el = document.getElementById('practice')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const openSituationChatCase = (chatCase: LegalChatCase) => {
+    setActiveScenarioId(null)
+    setActiveAnalysisContractId(null)
+    setActiveChatCaseId(chatCase.id)
+    setPracticeView('situation-play')
+    setActiveSection('practice')
+    window.history.pushState(null, '', `#practice/situations/${chatCase.id}`)
+    const el = document.getElementById('practice')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const openContractErrorsPractice = () => {
+    setActiveChatCaseId(null)
+    setActiveScenarioId(null)
+    setActiveAnalysisContractId(null)
+    setPracticeView('contract-errors')
+    setActiveSection('practice')
+    window.history.pushState(null, '', '#practice/contract-errors')
+    const el = document.getElementById('practice')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const openContractAnalysisCatalog = () => {
+    setActiveChatCaseId(null)
+    setActiveScenarioId(null)
+    setActiveAnalysisContractId(null)
+    setPracticeView('analysis-catalog')
+    setActiveSection('practice')
+    window.history.pushState(null, '', '#practice/contract-analysis')
+    const el = document.getElementById('practice')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const openContractAnalysisItem = (contract: ContractAnalysisItem) => {
+    setActiveChatCaseId(null)
+    setActiveScenarioId(null)
+    setActiveAnalysisContractId(contract.id)
+    setPracticeView('analysis-play')
+    setActiveSection('practice')
+    window.history.pushState(null, '', `#practice/contract-analysis/${contract.id}`)
+    const el = document.getElementById('practice')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const openScenariosCatalog = () => {
+    setActiveChatCaseId(null)
+    setActiveScenarioId(null)
+    setActiveAnalysisContractId(null)
+    setPracticeView('scenarios-catalog')
+    setActiveSection('practice')
+    window.history.pushState(null, '', '#practice/scenarios')
+    const el = document.getElementById('practice')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const openScenarioCase = (scenario: LegalCaseScenario) => {
+    setActiveChatCaseId(null)
+    setActiveAnalysisContractId(null)
+    setActiveScenarioId(scenario.id)
+    setPracticeView('scenario-play')
+    setActiveSection('practice')
+    window.history.pushState(null, '', `#practice/scenarios/${scenario.id}`)
+    const el = document.getElementById('practice')
+    if (el) el.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const backToPracticeMenu = () => {
+    setActiveChatCaseId(null)
+    setActiveScenarioId(null)
+    setActiveAnalysisContractId(null)
+    setPracticeView('menu')
+    window.history.pushState(null, '', '#practice')
+  }
+
+  const handleRecordChatCaseAnswer = (caseId: string, isCorrect: boolean) => {
+    const res = recordLegalChatCaseResult(crosswordProgress, caseId, isCorrect)
+    setCrosswordProgress(res.nextMap)
+    return { xpGainedNow: res.xpGainedNow, alreadyAwarded: res.alreadyAwarded }
+  }
+
+  const handleSaveContractAnalysisStep = useCallback(
+    (contractId: string, stepIndex: number, maxUnlockedStep: number) => {
+      setCrosswordProgress((prev) =>
+        saveContractAnalysisStep(prev, contractId, stepIndex, maxUnlockedStep)
+      )
+    },
+    []
+  )
+
+  const handleCompleteContractAnalysis = (contractId: string, totalSteps: number) => {
+    const res = completeContractAnalysis(crosswordProgress, contractId, totalSteps)
+    setCrosswordProgress(res.nextMap)
+    return { xpGainedNow: res.xpGainedNow, alreadyCompleted: res.alreadyCompleted }
+  }
+
+  const handleCompleteLegalCase = (caseId: string, correctCount: number) => {
+    const res = recordLegalCaseResult(crosswordProgress, caseId, correctCount)
+    setCrosswordProgress(res.nextMap)
+    return { xpGainedNow: res.xpGainedNow, alreadyCompleted: res.alreadyCompleted }
   }
 
   const openWheelGame = () => {
@@ -489,6 +798,12 @@ function App() {
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
     e.preventDefault()
+    if (targetId === 'practice') {
+      setPracticeView('menu')
+      setActiveChatCaseId(null)
+      setActiveScenarioId(null)
+      setActiveAnalysisContractId(null)
+    }
     if (targetId === 'games') {
       setGamesView('menu')
       setActiveCrosswordId(null)
@@ -670,31 +985,200 @@ function App() {
               </div>
             </div>
 
-            <div className="practice-grid">
-              {practiceCards.map((card, index) => (
-                <article key={card.id} className={`edu-card edu-card-tone-${index % 3}`}>
-                  <div className="card-topline">
-                    <span className="card-icon-badge" aria-hidden="true">
-                      {card.icon}
-                    </span>
-                    <span className="card-pill-tag">{card.focus}</span>
-                  </div>
-                  <h3 className="card-heading">{card.title}</h3>
-                  <p className="edu-card-desc">{card.description}</p>
-                  <div className="card-action-row">
-                    <span className="card-status-pill">
-                      <span className="status-dot" aria-hidden="true" />
-                      <span>{card.status}</span>
-                    </span>
-                  </div>
-                </article>
-              ))}
-            </div>
+            {practiceView === 'menu' && (
+              <>
+                <div className="practice-grid">
+                  {practiceCards.map((card, index) => {
+                    const isSituationsCard = card.id === 'prac-situations'
+                    const isContractErrorsCard = card.id === 'prac-errors'
+                    const isContractAnalysisCard = card.id === 'prac-contracts'
+                    const isScenariosCard = card.id === 'prac-scenarios'
+                    const isInteractivePractice =
+                      isSituationsCard ||
+                      isContractErrorsCard ||
+                      isContractAnalysisCard ||
+                      isScenariosCard
+                    const handleOpenPractice = isSituationsCard
+                      ? openSituationsCatalog
+                      : isContractErrorsCard
+                      ? openContractErrorsPractice
+                      : isContractAnalysisCard
+                      ? openContractAnalysisCatalog
+                      : isScenariosCard
+                      ? openScenariosCatalog
+                      : undefined
 
-            <div className="section-status-banner">
-              <span className="status-dot" aria-hidden="true" />
-              <span>Учебные практические ситуации разрабатываются на основе положений гражданского законодательства РК без вымышленных норм.</span>
-            </div>
+                    return (
+                      <article
+                        key={card.id}
+                        className={`edu-card edu-card-tone-${index % 3} ${
+                          isInteractivePractice ? 'game-card-interactive' : ''
+                        }`}
+                        onClick={handleOpenPractice}
+                        role={isInteractivePractice ? 'button' : undefined}
+                        tabIndex={isInteractivePractice ? 0 : undefined}
+                        onKeyDown={
+                          handleOpenPractice
+                            ? (e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault()
+                                  handleOpenPractice()
+                                }
+                              }
+                            : undefined
+                        }
+                        aria-label={
+                          isSituationsCard
+                            ? 'Открыть тренажёр «Разбор юридических ситуаций»'
+                            : isContractErrorsCard
+                            ? 'Открыть практику «Поиск ошибок в учебном договоре»'
+                            : isContractAnalysisCard
+                            ? 'Открыть раздел «Пошаговый разбор договоров»'
+                            : isScenariosCard
+                            ? 'Открыть интерактив «Выбери развитие событий»'
+                            : undefined
+                        }
+                      >
+                        <div className="card-topline">
+                          <span className="card-icon-badge" aria-hidden="true">
+                            {card.icon}
+                          </span>
+                          <span className="card-pill-tag">
+                            {isSituationsCard
+                              ? `${legalChatCases.length} кейса · ${completedChatCasesCount}/${legalChatCases.length}`
+                              : isContractErrorsCard
+                              ? '4 договора · ГК РК'
+                              : isContractAnalysisCard
+                              ? `${contractAnalysisData.length} договора · ${completedContractsCount}/${contractAnalysisData.length}`
+                              : isScenariosCard
+                              ? `${legalCasesData.length} дела · ${completedCasesCount}/${legalCasesData.length}`
+                              : card.focus}
+                          </span>
+                        </div>
+                        <h3 className="card-heading">{card.title}</h3>
+                        <p className="edu-card-desc">{card.description}</p>
+                        <div className="card-action-row">
+                          {isSituationsCard ? (
+                            <button
+                              type="button"
+                              className="card-action-btn primary-start-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openSituationsCatalog()
+                              }}
+                            >
+                              <span>Открыть ситуации</span>
+                              <span aria-hidden="true">→</span>
+                            </button>
+                          ) : isContractErrorsCard ? (
+                            <button
+                              type="button"
+                              className="card-action-btn primary-start-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openContractErrorsPractice()
+                              }}
+                            >
+                              <span>Открыть практику</span>
+                              <span aria-hidden="true">→</span>
+                            </button>
+                          ) : isContractAnalysisCard ? (
+                            <button
+                              type="button"
+                              className="card-action-btn primary-start-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openContractAnalysisCatalog()
+                              }}
+                            >
+                              <span>Открыть разбор</span>
+                              <span aria-hidden="true">→</span>
+                            </button>
+                          ) : isScenariosCard ? (
+                            <button
+                              type="button"
+                              className="card-action-btn primary-start-btn"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                openScenariosCatalog()
+                              }}
+                            >
+                              <span>Открыть дела</span>
+                              <span aria-hidden="true">→</span>
+                            </button>
+                          ) : (
+                            <span className="card-status-pill">
+                              <span className="status-dot" aria-hidden="true" />
+                              <span>{card.status}</span>
+                            </span>
+                          )}
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+
+                <div className="section-status-banner">
+                  <span className="status-dot" aria-hidden="true" />
+                  <span>
+                    Все четыре практикума раздела активны: «Разбор юридических ситуаций» (4 кейса в формате переписки), «Поиск ошибок в учебном договоре», «Пошаговый разбор договоров» и «Выбери развитие событий».
+                  </span>
+                </div>
+              </>
+            )}
+
+            {(practiceView === 'situations-catalog' || practiceView === 'situation-play') && (
+              <LegalChatCases
+                activeCaseId={practiceView === 'situation-play' ? activeChatCaseId : null}
+                progressMap={crosswordProgress}
+                onSelectCase={openSituationChatCase}
+                onBackToCatalog={openSituationsCatalog}
+                onBackToPractice={backToPracticeMenu}
+                onRecordAnswer={handleRecordChatCaseAnswer}
+              />
+            )}
+
+            {practiceView === 'contract-errors' && (
+              <ContractErrorPractice onBackToPractice={backToPracticeMenu} />
+            )}
+
+            {practiceView === 'analysis-catalog' && (
+              <ContractAnalysisCatalog
+                progressMap={crosswordProgress}
+                onSelectContract={openContractAnalysisItem}
+                onBackToPractice={backToPracticeMenu}
+              />
+            )}
+
+            {practiceView === 'analysis-play' && activeAnalysisContract && (
+              <ContractAnalysisViewer
+                key={activeAnalysisContract.id}
+                contract={activeAnalysisContract}
+                progress={crosswordProgress[activeAnalysisContract.id]}
+                nextContract={nextAnalysisContract}
+                onBackToCatalog={openContractAnalysisCatalog}
+                onSelectContract={openContractAnalysisItem}
+                onSaveStep={handleSaveContractAnalysisStep}
+                onCompleteContract={handleCompleteContractAnalysis}
+              />
+            )}
+
+            {practiceView === 'scenarios-catalog' && (
+              <LegalCasesCatalog
+                progressMap={crosswordProgress}
+                onSelectCase={openScenarioCase}
+                onBackToPractice={backToPracticeMenu}
+              />
+            )}
+
+            {practiceView === 'scenario-play' && activeScenario && (
+              <LegalCasePlayer
+                key={activeScenario.id}
+                scenario={activeScenario}
+                onBackToCatalog={openScenariosCatalog}
+                onCompleteCase={handleCompleteLegalCase}
+              />
+            )}
           </div>
         </section>
 
@@ -911,7 +1395,7 @@ function App() {
                       {st.icon}
                     </span>
                     <span className="demo-tag">
-                      {totalCrosswordXp > 0 ? 'Обновлено + кроссворды' : 'Пример данных'}
+                      {totalEarnedLocalXp > 0 ? 'Локальный прогресс' : 'Пример данных'}
                     </span>
                   </div>
                   <span className="stat-label">{st.label}</span>
@@ -943,7 +1427,7 @@ function App() {
                 </div>
                 <div className="achievements-summary">
                   <span className="demo-tag">
-                    {completedCrosswordsCount > 0 ? 'Локальный прогресс' : 'Пример данных'}
+                    {totalCompletedLocalTasks > 0 ? 'Локальный прогресс' : 'Пример данных'}
                   </span>
                   <div
                     className="achievements-meter"
