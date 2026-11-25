@@ -14,10 +14,21 @@ import {
 } from '../utils/timedQuizLogic'
 
 interface TimedQuizGameProps {
+  alreadyCompletedBefore: boolean
   onBackToGames: () => void
+  onComplete: (correctCount: number) => {
+    xpGainedNow: number
+    alreadyCompleted: boolean
+    leveledUp: boolean
+    newLevel: number
+  }
 }
 
-export function TimedQuizGame({ onBackToGames }: TimedQuizGameProps) {
+export function TimedQuizGame({
+  alreadyCompletedBefore,
+  onBackToGames,
+  onComplete,
+}: TimedQuizGameProps) {
   const [phase, setPhase] = useState<TimedQuizPhase>('intro')
   const [questions, setQuestions] = useState<TimedQuizQuestion[]>(() =>
     shuffleTimedQuestions(timedQuizQuestions)
@@ -28,6 +39,11 @@ export function TimedQuizGame({ onBackToGames }: TimedQuizGameProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0)
   const [finishedByTimeout, setFinishedByTimeout] = useState<boolean>(false)
   const [lockedChoiceIndex, setLockedChoiceIndex] = useState<number | null>(null)
+  const [xpAward, setXpAward] = useState<{
+    gained: number
+    alreadyCompleted: boolean
+    notEligibleReason?: string
+  } | null>(null)
 
   // Рефы для точного wall-clock таймера и защиты от двойного завершения/двойных баллов
   const startTimeRef = useRef<number | null>(null)
@@ -93,9 +109,29 @@ export function TimedQuizGame({ onBackToGames }: TimedQuizGameProps) {
       setLockedChoiceIndex(null)
       recordsRef.current = completeRecords
       setRecords(completeRecords)
+
+      // Начисление XP только при фактическом завершении всех 12 вопросов в срок (без пустых пропусков)
+      const answeredCount = completeRecords.filter((r) => r.status !== 'skipped').length
+      const correctCount = completeRecords.filter((r) => r.status === 'correct').length
+      if (reason === 'completed' && answeredCount > 0) {
+        const res = onComplete(correctCount)
+        setXpAward({ gained: res.xpGainedNow, alreadyCompleted: res.alreadyCompleted })
+      } else if (alreadyCompletedBefore) {
+        setXpAward({ gained: 0, alreadyCompleted: true })
+      } else {
+        setXpAward({
+          gained: 0,
+          alreadyCompleted: false,
+          notEligibleReason:
+            reason === 'timeout'
+              ? 'Для получения +20 XP завершите все 12 вопросов до истечения времени'
+              : 'Для получения +20 XP ответьте на вопросы испытания (не пропуская все подряд)',
+        })
+      }
+
       setPhase('finished')
     },
-    [clearAllTimers]
+    [alreadyCompletedBefore, clearAllTimers, onComplete]
   )
 
   // Синхронизация таймера по системным часам (устойчиво к переключению вкладок и троттлингу JS)
@@ -154,6 +190,7 @@ export function TimedQuizGame({ onBackToGames }: TimedQuizGameProps) {
     setElapsedSeconds(0)
     setFinishedByTimeout(false)
     setLockedChoiceIndex(null)
+    setXpAward(null)
     setPhase('playing')
   }
 
@@ -383,6 +420,22 @@ export function TimedQuizGame({ onBackToGames }: TimedQuizGameProps) {
             )}
             <h3 className="result-title">{results.title}</h3>
             <p className="result-subtitle">{results.message}</p>
+
+            {xpAward && (
+              <div className="xp-inline-feedback">
+                {xpAward.gained > 0 ? (
+                  <span className="cw-xp-gained-pill">
+                    Задание завершено! +{xpAward.gained} XP
+                  </span>
+                ) : xpAward.notEligibleReason ? (
+                  <span className="cw-xp-neutral-pill">{xpAward.notEligibleReason}</span>
+                ) : (
+                  <span className="cw-xp-neutral-pill">
+                    Вы уже получили опыт за это задание
+                  </span>
+                )}
+              </div>
+            )}
 
             <div className="timed-final-score-badge">
               <span className="timed-final-score-num">{results.correctCount}</span>

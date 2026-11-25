@@ -44,7 +44,8 @@ export interface CrosswordPuzzle {
   needsReview: boolean
 }
 
-export const CROSSWORD_XP_PER_WORD = 10
+export const CROSSWORD_XP_PER_WORD = 5
+export const CROSSWORD_COMPLETION_XP = 25
 
 const ADILET_GENERAL_URL = 'https://adilet.zan.kz/rus/docs/K940001000_'
 const ADILET_SPECIAL_URL = 'https://adilet.zan.kz/rus/docs/K990000409_'

@@ -48,7 +48,6 @@ export interface LegalCaseScenario {
     explanation: string[]
     sourceName: string
     sourceUrl: string
-    needsLawyerCheck: boolean
   }
 }
 
@@ -124,7 +123,6 @@ export const legalCasesData: LegalCaseScenario[] = [
       ],
       sourceName: 'ГК РК (Общая часть)',
       sourceUrl: `${ADILET_GENERAL_URL}#z536`,
-      needsLawyerCheck: false,
     },
   },
   {
@@ -192,7 +190,6 @@ export const legalCasesData: LegalCaseScenario[] = [
       ],
       sourceName: 'ГК РК (Общая часть)',
       sourceUrl: `${ADILET_GENERAL_URL}#z530`,
-      needsLawyerCheck: false,
     },
   },
   {
@@ -261,7 +258,6 @@ export const legalCasesData: LegalCaseScenario[] = [
       ],
       sourceName: 'ГК РК (Особенная часть)',
       sourceUrl: ADILET_SPECIAL_URL,
-      needsLawyerCheck: true,
     },
   },
   {
@@ -329,7 +325,6 @@ export const legalCasesData: LegalCaseScenario[] = [
       ],
       sourceName: 'ГК РК (Особенная часть)',
       sourceUrl: ADILET_SPECIAL_URL,
-      needsLawyerCheck: true,
     },
   },
 ]

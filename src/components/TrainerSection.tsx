@@ -1,12 +1,26 @@
 import { useState } from 'react'
-import { QuizInteractive } from './QuizInteractive'
-import { TruthOrMythInteractive } from './TruthOrMythInteractive'
-import { MatchingInteractive } from './MatchingInteractive'
-import { SortingInteractive } from './SortingInteractive'
-import type { TrainerMode } from '../data/trainerTypes'
 
-export function TrainerSection() {
-  const [activeMode, setActiveMode] = useState<TrainerMode>(null)
+export type { TaskAwardFeedback } from './TrainerPage'
+
+interface TrainerSectionProps {
+  onOpenTrainer: () => void
+}
+
+const trainerFormatPreviews = [
+  { num: '01', title: 'Тесты по ГК РК' },
+  { num: '02', title: 'Правда или миф?' },
+  { num: '03', title: 'Соедини термин и определение' },
+  { num: '04', title: 'Распредели по категориям' },
+]
+
+export function TrainerSection({ onOpenTrainer }: TrainerSectionProps) {
+  const [isExpanded, setIsExpanded] = useState<boolean>(false)
+
+  const handleCardClick = (e: React.MouseEvent<HTMLElement>) => {
+    const target = e.target as HTMLElement
+    if (target.closest('button, a')) return
+    setIsExpanded((prev) => !prev)
+  }
 
   return (
     <section className="content-section" id="trainer" aria-labelledby="trainer-heading">
@@ -22,11 +36,20 @@ export function TrainerSection() {
               Тренажёр знаний
             </h2>
             <p className="section-main-desc">
-              Четыре интерактивных режима для закрепления норм гражданского права РК: тестирование, «Правда или миф?», сопоставление терминов и распределение по категориям.
+              Интерактивные задания для изучения и закрепления знаний по гражданскому праву Республики Казахстан.
             </p>
           </div>
           <div className="section-header-icon" aria-hidden="true">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <circle cx="12" cy="12" r="10" />
               <circle cx="12" cy="12" r="6" />
               <circle cx="12" cy="12" r="2" />
@@ -34,147 +57,111 @@ export function TrainerSection() {
           </div>
         </div>
 
-        {/* Каталог режимов */}
-        {activeMode === null && (
-          <>
-            <div className="trainer-grid">
-              {/* 1 — Тесты */}
-              <article className="edu-card trainer-mode-card featured-mode">
-                <div className="card-topline">
-                  <span className="card-icon-badge" aria-hidden="true">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="m9 11 3 3L22 4" />
-                      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-                    </svg>
-                  </span>
-                  <span className="card-pill-tag tag-interactive">10 из 50 вопросов</span>
-                </div>
-                <h3 className="card-heading">Тесты по ГК РК</h3>
-                <p className="edu-card-desc">
-                  Проверьте свои знания по ключевым институтам гражданского права Казахстана. Случайная выборка 10 вопросов из банка 50 заданий с подробным объяснением каждого ответа.
-                </p>
-                <div className="card-action-row">
-                  <button
-                    type="button"
-                    className="card-action-btn primary-start-btn"
-                    onClick={() => setActiveMode('quiz')}
-                    aria-label="Начать тестирование по ГК РК"
-                  >
-                    <span>Начать тестирование</span>
-                    <span aria-hidden="true">→</span>
-                  </button>
-                </div>
-              </article>
+        {/* Презентационная информационная карточка тренажёра знаний с плавным раскрытием */}
+        <article
+          className={`lib-hero-card trainer-hero-card promo-expandable-card ${
+            isExpanded ? 'is-expanded' : ''
+          }`}
+          onClick={handleCardClick}
+        >
+          <div className="lib-hero-content">
+            <span className="lib-hero-eyebrow">Интерактивная практика · ГК РК</span>
+            <h3 className="lib-hero-title">Тренажёр знаний</h3>
+            <p className="lib-hero-desc">
+              Проверяйте свои знания гражданского права Республики Казахстан с помощью интерактивных заданий. Решайте тесты, проверяйте правовые утверждения, соединяйте юридические термины с определениями и распределяйте понятия по категориям, чтобы закрепить изученный материал.
+            </p>
 
-              {/* 2 — Правда или миф? */}
-              <article className="edu-card trainer-mode-card featured-mode">
-                <div className="card-topline">
-                  <span className="card-icon-badge" aria-hidden="true">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                      <line x1="12" y1="17" x2="12.01" y2="17" />
-                    </svg>
-                  </span>
-                  <span className="card-pill-tag tag-interactive">5 из 50 утверждений</span>
-                </div>
-                <h3 className="card-heading">Правда или миф?</h3>
-                <p className="edu-card-desc">
-                  Экспресс-раунд на юридическую интуицию: отличите реальные статьи ГК РК от популярных правовых заблуждений. 5 случайных утверждений с обоснованием норм.
-                </p>
-                <div className="card-action-row">
-                  <button
-                    type="button"
-                    className="card-action-btn primary-start-btn"
-                    onClick={() => setActiveMode('truthOrMyth')}
-                    aria-label="Начать режим Правда или миф"
-                  >
-                    <span>Играть раунд</span>
-                    <span aria-hidden="true">→</span>
-                  </button>
-                </div>
-              </article>
-
-              {/* 3 — Соединяшки */}
-              <article className="edu-card trainer-mode-card featured-mode">
-                <div className="card-topline">
-                  <span className="card-icon-badge" aria-hidden="true">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                    </svg>
-                  </span>
-                  <span className="card-pill-tag tag-interactive">5 из 50 терминов</span>
-                </div>
-                <h3 className="card-heading">Соедини термин и определение</h3>
-                <p className="edu-card-desc">
-                  Упражнения на сопоставление юридических понятий с их нормативными формулировками по ГК РК. Термины и определения перемешиваются независимо.
-                </p>
-                <div className="card-action-row">
-                  <button
-                    type="button"
-                    className="card-action-btn primary-start-btn"
-                    onClick={() => setActiveMode('matching')}
-                    aria-label="Начать соединение терминов с определениями"
-                  >
-                    <span>Начать раунд</span>
-                    <span aria-hidden="true">→</span>
-                  </button>
-                </div>
-              </article>
-
-              {/* 4 — Распредели по категориям */}
-              <article className="edu-card trainer-mode-card featured-mode">
-                <div className="card-topline">
-                  <span className="card-icon-badge" aria-hidden="true">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="7" height="7" />
-                      <rect x="14" y="3" width="7" height="7" />
-                      <rect x="14" y="14" width="7" height="7" />
-                      <rect x="3" y="14" width="7" height="7" />
-                    </svg>
-                  </span>
-                  <span className="card-pill-tag tag-interactive">10 из 50 карточек</span>
-                </div>
-                <h3 className="card-heading">Распредели по категориям</h3>
-                <p className="edu-card-desc">
-                  Задания на распределение правовых объектов, видов сделок и обязательств по четырём институтам ГК РК: вещное право, обязательственное, субъекты, сделки.
-                </p>
-                <div className="card-action-row">
-                  <button
-                    type="button"
-                    className="card-action-btn primary-start-btn"
-                    onClick={() => setActiveMode('sorting')}
-                    aria-label="Начать распределение по категориям"
-                  >
-                    <span>Начать раунд</span>
-                    <span aria-hidden="true">→</span>
-                  </button>
-                </div>
-              </article>
+            <div className="promo-reveal-collapse" id="trainer-card-details">
+              <div className="promo-reveal-inner">
+                <ul className="lib-hero-highlights">
+                  <li>
+                    <span className="lib-highlight-icon" aria-hidden="true">
+                      ✓
+                    </span>
+                    <span>4 интерактивных формата</span>
+                  </li>
+                  <li>
+                    <span className="lib-highlight-icon" aria-hidden="true">
+                      ✓
+                    </span>
+                    <span>Проверка знаний в игровой форме</span>
+                  </li>
+                  <li>
+                    <span className="lib-highlight-icon" aria-hidden="true">
+                      ✓
+                    </span>
+                    <span>Практика по гражданскому праву Республики Казахстан</span>
+                  </li>
+                </ul>
+              </div>
             </div>
 
-            <div className="section-status-banner">
-              <span className="status-dot" aria-hidden="true" />
-              <span>
-                Все четыре интерактива подключены к банку из 200 проверенных правовых элементов по Гражданскому кодексу РК с перемешиванием и ссылками на «Әділет».
-              </span>
-            </div>
-          </>
-        )}
+            <div className="lib-hero-actions">
+              <button
+                type="button"
+                className="lib-hero-cta-btn"
+                onClick={onOpenTrainer}
+              >
+                <span>Перейти к тренажёру</span>
+                <span aria-hidden="true">→</span>
+              </button>
 
-        {activeMode === 'quiz' && (
-          <QuizInteractive onExit={() => setActiveMode(null)} />
-        )}
-        {activeMode === 'truthOrMyth' && (
-          <TruthOrMythInteractive onExit={() => setActiveMode(null)} />
-        )}
-        {activeMode === 'matching' && (
-          <MatchingInteractive onExit={() => setActiveMode(null)} />
-        )}
-        {activeMode === 'sorting' && (
-          <SortingInteractive onExit={() => setActiveMode(null)} />
-        )}
+              <button
+                type="button"
+                className="promo-details-toggle-btn"
+                aria-expanded={isExpanded}
+                aria-controls="trainer-card-details"
+                onClick={() => setIsExpanded((prev) => !prev)}
+              >
+                <span>{isExpanded ? 'Скрыть подробности' : 'Подробнее'}</span>
+                <span className="promo-toggle-chevron" aria-hidden="true">
+                  ▾
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Визуальный блок-эмблема форматов тренажёра */}
+          <div className="lib-hero-visual" aria-hidden="true">
+            <div className="lib-visual-emblem">
+              <div className="lib-visual-crest">
+                <span className="lib-visual-scale">
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <circle cx="12" cy="12" r="6" />
+                    <circle cx="12" cy="12" r="2" />
+                  </svg>
+                </span>
+                <div className="lib-visual-crest-text">
+                  <strong>Тренажёр</strong>
+                  <span>4 интерактивных формата</span>
+                </div>
+              </div>
+
+              <div className="promo-reveal-collapse promo-chapters-collapse">
+                <div className="promo-reveal-inner">
+                  <div className="lib-visual-chapters">
+                    {trainerFormatPreviews.map((item) => (
+                      <div key={item.num} className="lib-visual-chapter-row">
+                        <span className="lib-chapter-num">{item.num}</span>
+                        <span className="lib-chapter-name">{item.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
       </div>
     </section>
   )

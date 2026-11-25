@@ -19,6 +19,12 @@ import { FortuneWheelSvg } from './FortuneWheelSvg'
 
 interface FortuneWheelGameProps {
   onBackToGames: () => void
+  onComplete: (correctCount: number) => {
+    xpGainedNow: number
+    alreadyCompleted: boolean
+    leveledUp: boolean
+    newLevel: number
+  }
 }
 
 const INITIAL_SECTORS = Array.from({ length: WHEEL_SECTOR_COUNT }, (_, i) => i)
@@ -27,7 +33,7 @@ function createInitialStatuses(): WheelSectorStatus[] {
   return Array.from({ length: WHEEL_SECTOR_COUNT }, () => 'available')
 }
 
-export function FortuneWheelGame({ onBackToGames }: FortuneWheelGameProps) {
+export function FortuneWheelGame({ onBackToGames, onComplete }: FortuneWheelGameProps) {
   const [sessionQuestions, setSessionQuestions] = useState<WheelQuestion[]>(() =>
     shuffleWheelQuestions(wheelQuestions)
   )
@@ -39,6 +45,10 @@ export function FortuneWheelGame({ onBackToGames }: FortuneWheelGameProps) {
   const [activeSectorIndex, setActiveSectorIndex] = useState<number | null>(null)
   const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(null)
   const [history, setHistory] = useState<WheelAnswerRecord[]>([])
+  const [xpAward, setXpAward] = useState<{
+    gained: number
+    alreadyCompleted: boolean
+  } | null>(null)
 
   const rafIdRef = useRef<number | null>(null)
   const postStopTimerRef = useRef<number | null>(null)
@@ -162,9 +172,11 @@ export function FortuneWheelGame({ onBackToGames }: FortuneWheelGameProps) {
     setRemainingSectors((prev) => prev.filter((idx) => idx !== activeSectorIndex))
   }
 
-  // Переход к следующему вращению или к экрану итогов
+  // Переход к следующему вращению или к экрану итогов (начисление XP после всех 10 секторов)
   const handleNextQuestion = () => {
     if (remainingSectors.length === 0) {
+      const res = onComplete(correctScore)
+      setXpAward({ gained: res.xpGainedNow, alreadyCompleted: res.alreadyCompleted })
       setPhase('finished')
       setActiveSectorIndex(null)
       setSelectedOptionIndex(null)
@@ -175,7 +187,7 @@ export function FortuneWheelGame({ onBackToGames }: FortuneWheelGameProps) {
     setPhase('idle')
   }
 
-  // Полный перезапуск игры с новым перемешиванием 10 вопросов
+  // Полный перезапуск игры с новым перемешиванием 10 вопросов (не обнуляет полученный опыт)
   const handleRestart = () => {
     clearTimers()
     setSessionQuestions(shuffleWheelQuestions(wheelQuestions))
@@ -186,6 +198,7 @@ export function FortuneWheelGame({ onBackToGames }: FortuneWheelGameProps) {
     setActiveSectorIndex(null)
     setSelectedOptionIndex(null)
     setHistory([])
+    setXpAward(null)
   }
 
   const finalResults = evaluateWheelResult(history, totalQuestions)
@@ -402,6 +415,19 @@ export function FortuneWheelGame({ onBackToGames }: FortuneWheelGameProps) {
             </span>
             <h3 className="result-title">{finalResults.gradeTitle}</h3>
             <p className="result-subtitle">{finalResults.gradeMessage}</p>
+            {xpAward && (
+              <div className="xp-inline-feedback">
+                {xpAward.gained > 0 ? (
+                  <span className="cw-xp-gained-pill">
+                    Задание завершено! +{xpAward.gained} XP
+                  </span>
+                ) : (
+                  <span className="cw-xp-neutral-pill">
+                    Вы уже получили опыт за это задание
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="wheel-results-metrics">

@@ -19,9 +19,15 @@ function generateTruthOrMythRound(): TruthOrMythItem[] {
 
 interface TruthOrMythInteractiveProps {
   onExit: () => void
+  onComplete: (score: number) => {
+    xpGainedNow: number
+    alreadyCompleted: boolean
+    leveledUp: boolean
+    newLevel: number
+  }
 }
 
-export function TruthOrMythInteractive({ onExit }: TruthOrMythInteractiveProps) {
+export function TruthOrMythInteractive({ onExit, onComplete }: TruthOrMythInteractiveProps) {
   const [roundKey, setRoundKey] = useState(0)
   const statements = useMemo(() => generateTruthOrMythRound(), [roundKey])
 
@@ -35,6 +41,10 @@ export function TruthOrMythInteractive({ onExit }: TruthOrMythInteractiveProps) 
     }>
   >([])
   const [isCompleted, setIsCompleted] = useState(false)
+  const [xpAward, setXpAward] = useState<{
+    gained: number
+    alreadyCompleted: boolean
+  } | null>(null)
 
   const currentItem = statements[currentIndex]
   const isAnswered = userChoice !== null
@@ -54,22 +64,26 @@ export function TruthOrMythInteractive({ onExit }: TruthOrMythInteractiveProps) 
     ])
   }
 
-  // Переход к следующему вопросу или результату
+  // Переход к следующему вопросу или результату (начисление XP после всех утверждений)
   const handleNext = () => {
     if (currentIndex + 1 < statements.length) {
       setCurrentIndex((prev) => prev + 1)
       setUserChoice(null)
     } else {
+      const finalScore = answersHistory.filter((a) => a.isCorrect).length
+      const res = onComplete(finalScore)
+      setXpAward({ gained: res.xpGainedNow, alreadyCompleted: res.alreadyCompleted })
       setIsCompleted(true)
     }
   }
 
-  // Перезапуск с новой случайной выборкой
+  // Перезапуск с новой случайной выборкой (не обнуляет полученный опыт)
   const handleRestart = () => {
     setCurrentIndex(0)
     setUserChoice(null)
     setAnswersHistory([])
     setIsCompleted(false)
+    setXpAward(null)
     setRoundKey((k) => k + 1)
   }
 
@@ -234,6 +248,19 @@ export function TruthOrMythInteractive({ onExit }: TruthOrMythInteractiveProps) 
               <span className="result-score-total">/ 5</span>
             </div>
             <span className="result-score-label">Верных решений</span>
+            {xpAward && (
+              <div className="xp-inline-feedback">
+                {xpAward.gained > 0 ? (
+                  <span className="cw-xp-gained-pill">
+                    Задание завершено! +{xpAward.gained} XP
+                  </span>
+                ) : (
+                  <span className="cw-xp-neutral-pill">
+                    Вы уже получили опыт за это задание
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Обзор утверждений */}

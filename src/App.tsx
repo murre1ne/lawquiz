@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { LibrarySection } from './components/LibrarySection'
+import { LibraryPage } from './components/LibraryPage'
 import { TrainerSection } from './components/TrainerSection'
-import { CrosswordCatalog } from './components/CrosswordCatalog'
-import { CrosswordGame } from './components/CrosswordGame'
-import { FortuneWheelGame } from './components/FortuneWheelGame'
-import { TimedQuizGame } from './components/TimedQuizGame'
-import { ContractErrorPractice } from './components/ContractErrorPractice'
-import { LegalCasesCatalog } from './components/LegalCasesCatalog'
-import { LegalCasePlayer } from './components/LegalCasePlayer'
-import { ContractAnalysisCatalog } from './components/ContractAnalysisCatalog'
-import { ContractAnalysisViewer } from './components/ContractAnalysisViewer'
-import { LegalChatCases } from './components/LegalChatCases'
+import { TrainerPage } from './components/TrainerPage'
+import { PracticeSection } from './components/PracticeSection'
+import { PracticePage, type PracticeViewMode } from './components/PracticePage'
+import { GamesSection } from './components/GamesSection'
+import { GamesPage, type GamesViewMode } from './components/GamesPage'
+import { AchievementsSection } from './components/AchievementsSection'
+import { AchievementsPage } from './components/AchievementsPage'
+import { SettingsPage } from './components/SettingsPage'
+import { LegalSearchPreloader } from './components/LegalSearchPreloader'
+import { HeroTypewriterTitle } from './components/HeroTypewriterTitle'
+import { AmbientBackground } from './components/AmbientBackground'
+import { ScrollProgressBar } from './components/ScrollProgressBar'
+import { useScrollReveal } from './utils/useScrollReveal'
 import { crosswordPuzzles, type CrosswordPuzzle } from './data/crosswordData'
 import { legalCasesData, type LegalCaseScenario } from './data/legalCasesData'
 import {
@@ -19,50 +23,47 @@ import {
 } from './data/contractAnalysisData'
 import { legalChatCases, type LegalChatCase } from './data/legalChatCases'
 import {
+  RARITY_LABELS,
+  evaluateAchievementsView,
+  evaluateAndPersistAchievements,
+  getUnseenAchievementsCount,
+  loadUnlockedAchievements,
+  markAllAchievementsAsSeen,
+  type AchievementDefinition,
+  type UnlockedAchievementsMap,
+} from './data/achievementsData'
+import {
+  loadSiteSettings,
+  playAchievementSound,
+  playLevelUpSound,
+  playXPSound,
+  saveSiteSettings,
+  type SiteSettings,
+  type ThemeMode,
+} from './utils/achievementAudio'
+import {
+  awardXP,
   completeContractAnalysis,
+  getXPProgress,
+  isFreshProgressMode,
   loadCrosswordProgress,
   recordCrosswordResult,
   recordLegalCaseResult,
   recordLegalChatCaseResult,
+  recordPenaltyCaseSolved,
+  resetAllGameProgress,
   saveContractAnalysisStep,
+  type AwardXPPayload,
+  type AwardXPResult,
   type CrosswordProgressMap,
 } from './data/crosswordProgress'
+import { PENALTY_CASES } from './data/penaltyCalculatorData'
 
-interface PracticeCard {
-  id: string
+interface XPToastItem {
+  id: number
+  kind: 'xp' | 'already' | 'levelup' | 'reset'
   title: string
-  description: string
-  focus: string
-  status: string
-  icon: React.ReactNode
-}
-
-interface GameCard {
-  id: string
-  title: string
-  description: string
-  tag: string
-  status: string
-  icon: React.ReactNode
-}
-
-interface AchievementItem {
-  id: string
-  title: string
-  description: string
-  status: string
-  completed: boolean
-  icon: string
-}
-
-const THEME_STORAGE_KEY = 'lqkz-theme'
-
-function readStoredTheme(): 'light' | 'dark' {
-  try {
-    return window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light'
-  } catch {
-    return 'light'
-  }
+  subtitle?: string
 }
 
 const navItems = [
@@ -71,392 +72,562 @@ const navItems = [
   { id: 'trainer', label: 'Тренажёр знаний' },
   { id: 'practice', label: 'Юридическая практика' },
   { id: 'games', label: 'Игровая зона' },
-  { id: 'achievements', label: 'Мои достижения' },
-]
-
-// 3. Юридическая практика — карточки
-const practiceCards: PracticeCard[] = [
-  {
-    id: 'prac-situations',
-    title: 'Разбор юридических ситуаций',
-    description:
-      'Учебный анализ моделируемых жизненных обстоятельств из гражданского оборота с определением правомерности действий и взаимных обязанностей участников.',
-    focus: 'Анализ обстоятельств',
-    status: 'Учебные фабулы',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-        <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-        <path d="M7 21h10" />
-        <path d="M12 3v18" />
-        <path d="M3 7h18" />
-      </svg>
-    ),
-  },
-  {
-    id: 'prac-errors',
-    title: 'Поиск ошибок в учебном договоре',
-    description:
-      'Практические задания по выявлению некорректных, двусмысленных или противоречивых положений в учебных проектах договоров.',
-    focus: 'Аудит условий',
-    status: 'Учебные соглашения',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="11" cy="11" r="8" />
-        <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        <line x1="11" y1="8" x2="11" y2="12" />
-        <line x1="11" y1="14" x2="11.01" y2="14" />
-      </svg>
-    ),
-  },
-  {
-    id: 'prac-contracts',
-    title: 'Пошаговый разбор договоров',
-    description:
-      'Структурированное изучение существенных условий договоров: предмета соглашения, цены, прав и обязанностей сторон, порядка расторжения и ответственности.',
-    focus: 'Структура сделки',
-    status: 'Методика анализа',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <line x1="8" y1="6" x2="21" y2="6" />
-        <line x1="8" y1="12" x2="21" y2="12" />
-        <line x1="8" y1="18" x2="21" y2="18" />
-        <line x1="3" y1="6" x2="3.01" y2="6" />
-        <line x1="3" y1="12" x2="3.01" y2="12" />
-        <line x1="3" y1="18" x2="3.01" y2="18" />
-      </svg>
-    ),
-  },
-  {
-    id: 'prac-scenarios',
-    title: 'Выбери развитие событий',
-    description: 'Принимай юридические решения и смотри, к чему они приводят.',
-    focus: '4 юридических дела',
-    status: 'Интерактив',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="6" cy="6" r="3" />
-        <circle cx="18" cy="6" r="3" />
-        <circle cx="12" cy="18" r="3" />
-        <path d="M6 9v2a4 4 0 0 0 4 4h4a4 4 0 0 0 4-4V9" />
-        <path d="M12 15v0" />
-      </svg>
-    ),
-  },
-]
-
-// 4. Игровая зона — карточки
-const gameCards: GameCard[] = [
-  {
-    id: 'game-crossword',
-    title: 'Юридический кроссворд',
-    description:
-      'Интеллектуальная головоломка для повторения и закрепления юридических определений и ключевых понятий гражданского законодательства.',
-    tag: 'Слова и термины',
-    status: 'Проектирование',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <path d="M3 9h18" />
-        <path d="M3 15h18" />
-        <path d="M9 3v18" />
-        <path d="M15 3v18" />
-      </svg>
-    ),
-  },
-  {
-    id: 'game-wheel',
-    title: 'Колесо-фортуна',
-    description:
-      'Динамичная викторина со случайным выбором одного из 10 секторов по Общей и Особенной частям ГК РК для самопроверки без повторения вопросов.',
-    tag: '10 секторов · ГК РК',
-    status: 'Доступно',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="10" />
-        <path d="m4.93 4.93 4.24 4.24" />
-        <path d="m14.83 9.17 4.24-4.24" />
-        <path d="m14.83 14.83 4.24 4.24" />
-        <path d="m9.17 14.83-4.24 4.24" />
-        <circle cx="12" cy="12" r="2" />
-      </svg>
-    ),
-  },
-  {
-    id: 'game-time',
-    title: 'Испытание на время',
-    description:
-      'Ответьте на 12 вопросов по Общей и Особенной частям Гражданского кодекса РК за 5 минут с подробным разбором каждого ответа.',
-    tag: '12 вопросов · 5 минут',
-    status: 'Доступно',
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="12 6 12 12 16 14" />
-      </svg>
-    ),
-  },
-]
-
-// 5. Мои достижения — демонстрационные данные
-const demoStats = [
-  {
-    id: 'stat-tasks',
-    label: 'Количество выполненных заданий',
-    value: '14 / 45',
-    subtext: 'Учебных модулей и упражнений',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-        <polyline points="22 4 12 14.01 9 11.01" />
-      </svg>
-    ),
-  },
-  {
-    id: 'stat-score',
-    label: 'Набранные баллы',
-    value: '420 XP',
-    subtext: 'Баллов академического опыта',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-      </svg>
-    ),
-  },
-  {
-    id: 'stat-level',
-    label: 'Текущий уровень',
-    value: 'Уровень 2',
-    subtext: 'Начинающий правовед',
-    progress: 65,
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-        <path d="M4 22h16" />
-        <path d="M10 14.66V17c0 .55-.45 1-1 1H8v2h8v-2h-1c-.55 0-1-.45-1-1v-2.34" />
-        <path d="M18 4H6v7a6 6 0 0 0 12 0V4Z" />
-      </svg>
-    ),
-  },
-]
-
-const demoAchievements: AchievementItem[] = [
-  {
-    id: 'ach-1',
-    title: 'Первый шаг в праве',
-    description: 'Ознакомление с вводным разделом библиотеки гражданского права.',
-    status: 'Разблокировано',
-    completed: true,
-    icon: '📖',
-  },
-  {
-    id: 'ach-2',
-    title: 'Точность определений',
-    description: 'Успешное выполнение упражнений на сопоставление юридических понятий.',
-    status: 'Разблокировано',
-    completed: true,
-    icon: '🎯',
-  },
-  {
-    id: 'ach-3',
-    title: 'Внимательный аудитор',
-    description: 'Поиск неточностей в учебных фрагментах договоров.',
-    status: 'В процессе',
-    completed: false,
-    icon: '🔍',
-  },
-  {
-    id: 'ach-4',
-    title: 'Эрудит гражданского права',
-    description: 'Решение тематического юридического кроссворда.',
-    status: 'Не начато',
-    completed: false,
-    icon: '🧩',
-  },
-  {
-    id: 'ach-5',
-    title: 'Мастер правовых решений',
-    description: 'Прохождение всех четырёх интерактивных дел «Выбери развитие событий».',
-    status: 'Не начато',
-    completed: false,
-    icon: '⚖️',
-  },
+  { id: 'achievements', label: 'Прогресс' },
 ]
 
 function App() {
+  const [isHeroReadyForTyping, setIsHeroReadyForTyping] = useState<boolean>(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false)
   const [activeSection, setActiveSection] = useState<string>('home')
-  const [theme, setTheme] = useState<'light' | 'dark'>(readStoredTheme)
-  const [practiceView, setPracticeView] = useState<
-    | 'menu'
-    | 'situations-catalog'
-    | 'situation-play'
-    | 'contract-errors'
-    | 'scenarios-catalog'
-    | 'scenario-play'
-    | 'analysis-catalog'
-    | 'analysis-play'
-  >('menu')
+  const [isLibraryPageOpen, setIsLibraryPageOpen] = useState<boolean>(false)
+  const [isTrainerPageOpen, setIsTrainerPageOpen] = useState<boolean>(false)
+  const [isPracticePageOpen, setIsPracticePageOpen] = useState<boolean>(false)
+  const [isGamesPageOpen, setIsGamesPageOpen] = useState<boolean>(false)
+  const [isAchievementsPageOpen, setIsAchievementsPageOpen] = useState<boolean>(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false)
+  const [returnSection, setReturnSection] = useState<string>('home')
+  const [returnToPage, setReturnToPage] = useState<
+    'main' | 'library' | 'trainer' | 'practice' | 'games' | 'achievements'
+  >('main')
+  const isAchievementsPageOpenRef = useRef<boolean>(false)
+  isAchievementsPageOpenRef.current = isAchievementsPageOpen
+  const [siteSettings, setSiteSettings] = useState<SiteSettings>(loadSiteSettings)
+  const theme = siteSettings.theme
+  const notificationSettings = {
+    soundEnabled: siteSettings.soundEnabled,
+    visualNotificationsEnabled: siteSettings.visualNotificationsEnabled,
+  }
+  const [practiceView, setPracticeView] = useState<PracticeViewMode>('menu')
   const [activeChatCaseId, setActiveChatCaseId] = useState<string | null>(null)
   const [activeScenarioId, setActiveScenarioId] = useState<string | null>(null)
   const [activeAnalysisContractId, setActiveAnalysisContractId] = useState<string | null>(null)
-  const [gamesView, setGamesView] = useState<
-    'menu' | 'crosswords-catalog' | 'crossword-play' | 'wheel-play' | 'time-play'
-  >('menu')
+  const [gamesView, setGamesView] = useState<GamesViewMode>('menu')
   const [activeCrosswordId, setActiveCrosswordId] = useState<string | null>(null)
   const [crosswordProgress, setCrosswordProgress] = useState<CrosswordProgressMap>(
     loadCrosswordProgress
   )
-
-  const completedCrosswordsCount = crosswordPuzzles.filter(
-    (puzzle) => crosswordProgress[puzzle.id]?.completed
-  ).length
-  const totalCrosswordXp = crosswordPuzzles.reduce(
-    (sum, puzzle) => sum + (crosswordProgress[puzzle.id]?.xpEarned ?? 0),
-    0
+  const [unlockedAchievements, setUnlockedAchievements] = useState<UnlockedAchievementsMap>(
+    loadUnlockedAchievements
   )
+  const [isFreshBaseline, setIsFreshBaseline] = useState<boolean>(isFreshProgressMode)
+  const [xpToasts, setXpToasts] = useState<XPToastItem[]>([])
+  const [achievementQueue, setAchievementQueue] = useState<AchievementDefinition[]>([])
+  const [activeAchievementToast, setActiveAchievementToast] =
+    useState<AchievementDefinition | null>(null)
+  const toastIdRef = useRef<number>(1)
+  const toastTimersRef = useRef<number[]>([])
+  const themeTransitionTimerRef = useRef<number | null>(null)
+  const didSilentHydrateRef = useRef<boolean>(false)
 
-  const completedCasesCount = legalCasesData.filter(
-    (scenario) => crosswordProgress[scenario.id]?.completed
-  ).length
-  const totalCasesXp = legalCasesData.reduce(
-    (sum, scenario) => sum + (crosswordProgress[scenario.id]?.xpEarned ?? 0),
-    0
-  )
-
-  const completedContractsCount = contractAnalysisData.filter(
-    (contract) => crosswordProgress[contract.id]?.completed
-  ).length
-  const totalContractsXp = contractAnalysisData.reduce(
-    (sum, contract) => sum + (crosswordProgress[contract.id]?.xpEarned ?? 0),
-    0
-  )
-
-  const completedChatCasesCount = legalChatCases.filter(
-    (chatCase) => crosswordProgress[chatCase.id]?.completed
-  ).length
-  const totalChatCasesXp = legalChatCases.reduce(
-    (sum, chatCase) => sum + (crosswordProgress[chatCase.id]?.xpEarned ?? 0),
-    0
-  )
-
-  const totalEarnedLocalXp =
-    totalCrosswordXp + totalCasesXp + totalContractsXp + totalChatCasesXp
-  const totalCompletedLocalTasks =
-    completedCrosswordsCount +
-    completedCasesCount +
-    completedContractsCount +
-    completedChatCasesCount
-
-  const baseXp = 420
-  const totalXp = baseXp + totalEarnedLocalXp
-  const levelOffset = totalXp - 225
-  const currentLevel = Math.floor(levelOffset / 300) + 2
-  const currentLevelProgress = Math.min(100, Math.round(((levelOffset % 300) / 300) * 100))
-
-  const liveStats = demoStats.map((st) => {
-    if (st.id === 'stat-tasks') {
-      return {
-        ...st,
-        value: `${14 + totalCompletedLocalTasks} / 45`,
-        subtext:
-          totalCompletedLocalTasks > 0
-            ? `Завершено новых заданий: ${totalCompletedLocalTasks}`
-            : st.subtext,
+  useEffect(() => {
+    return () => {
+      toastTimersRef.current.forEach((timerId) => window.clearTimeout(timerId))
+      toastTimersRef.current = []
+      if (themeTransitionTimerRef.current !== null) {
+        window.clearTimeout(themeTransitionTimerRef.current)
+        themeTransitionTimerRef.current = null
       }
+      document.documentElement.classList.remove('theme-transitioning')
     }
-    if (st.id === 'stat-score') {
-      return {
-        ...st,
-        value: `${totalXp} XP`,
-        subtext:
-          totalEarnedLocalXp > 0
-            ? `Из них +${totalEarnedLocalXp} XP за пройденные практики и игры`
-            : st.subtext,
-      }
-    }
-    if (st.id === 'stat-level') {
-      return {
-        ...st,
-        value: `Уровень ${currentLevel}`,
-        progress: currentLevelProgress,
-      }
-    }
-    return st
-  })
+  }, [])
 
-  const liveAchievements = demoAchievements.map((ach) => {
-    if (ach.id === 'ach-4') {
-      if (completedCrosswordsCount >= 1) {
-        return {
-          ...ach,
-          completed: true,
-          status: 'Разблокировано',
-        }
-      }
-      if (totalCrosswordXp > 0) {
-        return {
-          ...ach,
-          completed: false,
-          status: 'В процессе',
-        }
-      }
-      return ach
-    }
-    if (ach.id === 'ach-5') {
-      if (completedCasesCount >= legalCasesData.length) {
-        return {
-          ...ach,
-          completed: true,
-          status: 'Разблокировано',
-        }
-      }
-      if (completedCasesCount > 0) {
-        return {
-          ...ach,
-          completed: false,
-          status: `В процессе (${completedCasesCount}/${legalCasesData.length})`,
-        }
-      }
-      return ach
-    }
-    return ach
-  })
-
-  const unlockedAchievements = liveAchievements.filter((item) => item.completed).length
-  const activeCrossword =
-    crosswordPuzzles.find((puzzle) => puzzle.id === activeCrosswordId) ?? null
-  const activeScenario =
-    legalCasesData.find((scenario) => scenario.id === activeScenarioId) ?? null
-  const activeAnalysisContract =
-    contractAnalysisData.find((contract) => contract.id === activeAnalysisContractId) ?? null
-
-  const nextAnalysisContract: ContractAnalysisItem | null = (() => {
-    if (!activeAnalysisContract) return null
-    const idx = contractAnalysisData.findIndex((item) => item.id === activeAnalysisContract.id)
-    if (idx >= 0 && idx < contractAnalysisData.length - 1) {
-      return contractAnalysisData[idx + 1]
-    }
-    const firstUncompleted = contractAnalysisData.find(
-      (item) => item.id !== activeAnalysisContract.id && !crosswordProgress[item.id]?.completed
+  // Тихая синхронизация уже выполненных условий из прежнего прогресса при загрузке (без спама уведомлений и ложного бейджа)
+  useEffect(() => {
+    if (didSilentHydrateRef.current) return
+    didSilentHydrateRef.current = true
+    const { nextUnlockedMap, newlyUnlocked } = evaluateAndPersistAchievements(
+      crosswordProgress,
+      unlockedAchievements,
+      { markNewAsSeen: true }
     )
-    return firstUncompleted ?? contractAnalysisData[0]
-  })()
+    if (newlyUnlocked.length > 0) {
+      setUnlockedAchievements(nextUnlockedMap)
+    }
+  }, [crosswordProgress, unlockedAchievements])
+
+  // Последовательная очередь показа уведомлений о полученных достижениях (+ звуковой эффект по редкости)
+  useEffect(() => {
+    if (activeAchievementToast !== null || achievementQueue.length === 0) return
+
+    const [nextAch, ...rest] = achievementQueue
+    setAchievementQueue(rest)
+    playAchievementSound(nextAch.rarity, notificationSettings.soundEnabled)
+
+    if (!notificationSettings.visualNotificationsEnabled) {
+      return
+    }
+
+    setActiveAchievementToast(nextAch)
+    const duration =
+      nextAch.rarity === 'legendary' ? 5400 : nextAch.rarity === 'rare' ? 4600 : 4000
+    const timerId = window.setTimeout(() => {
+      setActiveAchievementToast(null)
+    }, duration)
+
+    return () => window.clearTimeout(timerId)
+  }, [
+    achievementQueue,
+    activeAchievementToast,
+    notificationSettings.soundEnabled,
+    notificationSettings.visualNotificationsEnabled,
+  ])
+
+  const updateSiteSettings = useCallback((updater: (prev: SiteSettings) => SiteSettings) => {
+    setSiteSettings((prev) => {
+      const next = updater(prev)
+      saveSiteSettings(next)
+      return next
+    })
+  }, [])
+
+  const handleChangeTheme = useCallback(
+    (nextTheme: ThemeMode) => {
+      const currentTheme = document.documentElement.getAttribute('data-theme')
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+      if (currentTheme !== nextTheme && !prefersReducedMotion) {
+        if (themeTransitionTimerRef.current !== null) {
+          window.clearTimeout(themeTransitionTimerRef.current)
+        }
+        document.documentElement.classList.add('theme-transitioning')
+        themeTransitionTimerRef.current = window.setTimeout(() => {
+          document.documentElement.classList.remove('theme-transitioning')
+          themeTransitionTimerRef.current = null
+        }, 430)
+      }
+
+      updateSiteSettings((prev) => ({ ...prev, theme: nextTheme }))
+    },
+    [updateSiteSettings]
+  )
+
+  const handleToggleVisualNotifications = useCallback(
+    (enabled: boolean) => {
+      updateSiteSettings((prev) => ({ ...prev, visualNotificationsEnabled: enabled }))
+      if (!enabled) {
+        setXpToasts([])
+        setActiveAchievementToast(null)
+      }
+    },
+    [updateSiteSettings]
+  )
+
+  const handleToggleSound = useCallback(
+    (enabled: boolean) => {
+      updateSiteSettings((prev) => ({ ...prev, soundEnabled: enabled }))
+    },
+    [updateSiteSettings]
+  )
+
+  const scrollTopInstant = () => {
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMobileMenuOpen(false)
+    }
+    const handleResize = () => {
+      if (window.innerWidth > 1040) setIsMobileMenuOpen(false)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [isMobileMenuOpen])
+
+  const openLibraryPage = () => {
+    setIsMobileMenuOpen(false)
+    setIsSettingsOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsGamesPageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsLibraryPageOpen(true)
+    setActiveSection('library')
+    window.history.pushState(null, '', '#library/catalog')
+    scrollTopInstant()
+  }
+
+  const closeLibraryPageToHome = () => {
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsGamesPageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsSettingsOpen(false)
+    setActiveSection('home')
+    window.history.pushState(null, '', '#home')
+    scrollTopInstant()
+  }
+
+  const openTrainerPage = () => {
+    setIsMobileMenuOpen(false)
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsGamesPageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsTrainerPageOpen(true)
+    setActiveSection('trainer')
+    window.history.pushState(null, '', '#trainer/catalog')
+    scrollTopInstant()
+  }
+
+  const closeTrainerPageToHome = () => {
+    setIsTrainerPageOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsGamesPageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsSettingsOpen(false)
+    setActiveSection('home')
+    window.history.pushState(null, '', '#home')
+    scrollTopInstant()
+  }
+
+  const openPracticePage = () => {
+    setIsMobileMenuOpen(false)
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsGamesPageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setActiveChatCaseId(null)
+    setActiveScenarioId(null)
+    setActiveAnalysisContractId(null)
+    setPracticeView('menu')
+    setIsPracticePageOpen(true)
+    setActiveSection('practice')
+    window.history.pushState(null, '', '#practice/catalog')
+    scrollTopInstant()
+  }
+
+  const closePracticePageToHome = () => {
+    setIsPracticePageOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsGamesPageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsSettingsOpen(false)
+    setPracticeView('menu')
+    setActiveChatCaseId(null)
+    setActiveScenarioId(null)
+    setActiveAnalysisContractId(null)
+    setActiveSection('home')
+    window.history.pushState(null, '', '#home')
+    scrollTopInstant()
+  }
+
+  const openGamesPage = () => {
+    setIsMobileMenuOpen(false)
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setActiveCrosswordId(null)
+    setGamesView('menu')
+    setIsGamesPageOpen(true)
+    setActiveSection('games')
+    window.history.pushState(null, '', '#games/catalog')
+    scrollTopInstant()
+  }
+
+  const closeGamesPageToHome = () => {
+    setIsGamesPageOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsSettingsOpen(false)
+    setGamesView('menu')
+    setActiveCrosswordId(null)
+    setActiveSection('home')
+    window.history.pushState(null, '', '#home')
+    scrollTopInstant()
+  }
+
+  const openAchievementsPage = () => {
+    setIsMobileMenuOpen(false)
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsGamesPageOpen(false)
+    setIsAchievementsPageOpen(true)
+    setUnlockedAchievements((prev) => markAllAchievementsAsSeen(prev))
+    window.history.pushState(null, '', '#achievements/all')
+    scrollTopInstant()
+  }
+
+  const closeAchievementsPageToHome = () => {
+    setIsAchievementsPageOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsGamesPageOpen(false)
+    setIsSettingsOpen(false)
+    setActiveSection('home')
+    window.history.pushState(null, '', '#home')
+    scrollTopInstant()
+  }
+
+  const openSettingsPage = () => {
+    setIsMobileMenuOpen(false)
+    if (isSettingsOpen) {
+      closeSettingsPage()
+      return
+    }
+    if (isLibraryPageOpen) {
+      setReturnToPage('library')
+    } else if (isTrainerPageOpen) {
+      setReturnToPage('trainer')
+    } else if (isPracticePageOpen) {
+      setReturnToPage('practice')
+    } else if (isGamesPageOpen) {
+      setReturnToPage('games')
+    } else if (isAchievementsPageOpen) {
+      setReturnToPage('achievements')
+    } else {
+      setReturnToPage('main')
+    }
+    setReturnSection(activeSection || 'home')
+    setIsSettingsOpen(true)
+    window.history.pushState(null, '', '#settings')
+    scrollTopInstant()
+  }
+
+  const closeSettingsPage = () => {
+    setIsSettingsOpen(false)
+    if (returnToPage === 'library') {
+      setIsLibraryPageOpen(true)
+      setIsTrainerPageOpen(false)
+      setIsPracticePageOpen(false)
+      setIsGamesPageOpen(false)
+      setIsAchievementsPageOpen(false)
+      setActiveSection('library')
+      window.history.pushState(null, '', '#library/catalog')
+      scrollTopInstant()
+      return
+    }
+    if (returnToPage === 'trainer') {
+      setIsTrainerPageOpen(true)
+      setIsLibraryPageOpen(false)
+      setIsPracticePageOpen(false)
+      setIsGamesPageOpen(false)
+      setIsAchievementsPageOpen(false)
+      setActiveSection('trainer')
+      window.history.pushState(null, '', '#trainer/catalog')
+      scrollTopInstant()
+      return
+    }
+    if (returnToPage === 'practice') {
+      setIsPracticePageOpen(true)
+      setIsLibraryPageOpen(false)
+      setIsTrainerPageOpen(false)
+      setIsGamesPageOpen(false)
+      setIsAchievementsPageOpen(false)
+      setActiveSection('practice')
+      window.history.pushState(null, '', '#practice/catalog')
+      scrollTopInstant()
+      return
+    }
+    if (returnToPage === 'games') {
+      setIsGamesPageOpen(true)
+      setIsLibraryPageOpen(false)
+      setIsTrainerPageOpen(false)
+      setIsPracticePageOpen(false)
+      setIsAchievementsPageOpen(false)
+      setActiveSection('games')
+      window.history.pushState(null, '', '#games/catalog')
+      scrollTopInstant()
+      return
+    }
+    if (returnToPage === 'achievements') {
+      setIsAchievementsPageOpen(true)
+      setIsLibraryPageOpen(false)
+      setIsTrainerPageOpen(false)
+      setIsPracticePageOpen(false)
+      setIsGamesPageOpen(false)
+      setUnlockedAchievements((prev) => markAllAchievementsAsSeen(prev))
+      window.history.pushState(null, '', '#achievements/all')
+      scrollTopInstant()
+      return
+    }
+    const targetId = returnSection || 'home'
+    window.history.pushState(null, '', `#${targetId}`)
+    if (targetId === 'home') {
+      scrollTopInstant()
+      setActiveSection('home')
+      return
+    }
+    window.requestAnimationFrame(() => {
+      const el = document.getElementById(targetId)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' })
+        setActiveSection(targetId)
+      } else {
+        scrollTopInstant()
+      }
+    })
+  }
+
+  const pushToast = useCallback(
+    (
+      kind: XPToastItem['kind'],
+      title: string,
+      subtitle?: string,
+      durationMs = 4600,
+      forceShow = false
+    ) => {
+      if (!forceShow && !notificationSettings.visualNotificationsEnabled) return
+      const id = toastIdRef.current++
+      setXpToasts((prev) => [...prev.slice(-2), { id, kind, title, subtitle }])
+      const timerId = window.setTimeout(() => {
+        setXpToasts((prev) => prev.filter((item) => item.id !== id))
+      }, durationMs)
+      toastTimersRef.current.push(timerId)
+    },
+    [notificationSettings.visualNotificationsEnabled]
+  )
+
+  const dismissToast = (id: number) => {
+    setXpToasts((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const syncAchievementsAfterProgress = useCallback(
+    (nextProgressMap: CrosswordProgressMap) => {
+      setUnlockedAchievements((currentUnlocked) => {
+        const { nextUnlockedMap, newlyUnlocked } = evaluateAndPersistAchievements(
+          nextProgressMap,
+          currentUnlocked,
+          { markNewAsSeen: isAchievementsPageOpenRef.current }
+        )
+        if (newlyUnlocked.length > 0) {
+          setAchievementQueue((prevQueue) => [...prevQueue, ...newlyUnlocked])
+        }
+        return nextUnlockedMap
+      })
+    },
+    []
+  )
+
+  const notifyXPAward = useCallback(
+    (res: AwardXPResult) => {
+      if (res.xpGainedNow > 0) {
+        pushToast(
+          'xp',
+          `Задание завершено! +${res.xpGainedNow} XP`,
+          `Всего опыта: ${res.totalXp} XP`
+        )
+        if (res.leveledUp) {
+          playLevelUpSound(siteSettings.soundEnabled)
+          pushToast(
+            'levelup',
+            'Новый уровень достигнут!',
+            `Поздравляем! Теперь у вас Уровень ${res.newLevel}.`,
+            6200
+          )
+        } else {
+          playXPSound(siteSettings.soundEnabled)
+        }
+      } else if (res.alreadyCompleted) {
+        pushToast('already', 'Вы уже получили опыт за это задание', undefined, 3600)
+      }
+    },
+    [pushToast, siteSettings.soundEnabled]
+  )
+
+  const handleResetGameProgress = () => {
+    const emptyMap = resetAllGameProgress()
+    setCrosswordProgress(emptyMap)
+    setUnlockedAchievements({})
+    setIsFreshBaseline(true)
+    setAchievementQueue([])
+    setActiveAchievementToast(null)
+    setPracticeView('menu')
+    setGamesView('menu')
+    setActiveChatCaseId(null)
+    setActiveScenarioId(null)
+    setActiveAnalysisContractId(null)
+    setActiveCrosswordId(null)
+    pushToast('reset', 'Игровой прогресс успешно сброшен', 'Опыт, уровень и достижения обнулены.', 4800, true)
+  }
+
+  // Единый расчёт опыта, уровня, прогресса и всех 25 достижений
+  const xpProgress = getXPProgress(crosswordProgress)
+  const evaluatedAchievements = evaluateAchievementsView(
+    crosswordProgress,
+    unlockedAchievements
+  )
+  const unseenAchievementsCount = getUnseenAchievementsCount(unlockedAchievements)
 
   const syncFromHash = () => {
     const rawHash = window.location.hash.replace('#', '')
+    if (rawHash === 'settings') {
+      setIsSettingsOpen(true)
+      return 'settings'
+    }
+    setIsSettingsOpen(false)
+    if (rawHash === 'library/catalog') {
+      setIsLibraryPageOpen(true)
+      setIsTrainerPageOpen(false)
+      setIsPracticePageOpen(false)
+      setIsGamesPageOpen(false)
+      setIsAchievementsPageOpen(false)
+      setActiveSection('library')
+      return 'library-page'
+    }
+    setIsLibraryPageOpen(false)
+    if (rawHash === 'trainer/catalog') {
+      setIsTrainerPageOpen(true)
+      setIsPracticePageOpen(false)
+      setIsGamesPageOpen(false)
+      setIsAchievementsPageOpen(false)
+      setActiveSection('trainer')
+      return 'trainer-page'
+    }
+    setIsTrainerPageOpen(false)
+    if (rawHash === 'achievements/all') {
+      setIsPracticePageOpen(false)
+      setIsGamesPageOpen(false)
+      setIsAchievementsPageOpen(true)
+      setUnlockedAchievements((prev) => markAllAchievementsAsSeen(prev))
+      return 'achievements-page'
+    }
+    setIsAchievementsPageOpen(false)
+    if (rawHash === 'practice/catalog') {
+      setIsPracticePageOpen(true)
+      setPracticeView('menu')
+      setActiveChatCaseId(null)
+      setActiveScenarioId(null)
+      setActiveAnalysisContractId(null)
+      setActiveSection('practice')
+      return 'practice-page'
+    }
     if (rawHash === 'practice/situations') {
+      setIsPracticePageOpen(true)
       setPracticeView('situations-catalog')
       setActiveChatCaseId(null)
       setActiveScenarioId(null)
       setActiveAnalysisContractId(null)
-      return 'practice'
+      setActiveSection('practice')
+      return 'practice-page'
     }
     if (rawHash.startsWith('practice/situations/')) {
       const id = rawHash.replace('practice/situations/', '')
       const exists = legalChatCases.some((c) => c.id === id)
+      setIsPracticePageOpen(true)
       setActiveScenarioId(null)
       setActiveAnalysisContractId(null)
+      setActiveSection('practice')
       if (exists) {
         setActiveChatCaseId(id)
         setPracticeView('situation-play')
@@ -464,27 +635,33 @@ function App() {
         setActiveChatCaseId(null)
         setPracticeView('situations-catalog')
       }
-      return 'practice'
+      return 'practice-page'
     }
     if (rawHash === 'practice/contract-errors') {
+      setIsPracticePageOpen(true)
       setPracticeView('contract-errors')
       setActiveChatCaseId(null)
       setActiveScenarioId(null)
       setActiveAnalysisContractId(null)
-      return 'practice'
+      setActiveSection('practice')
+      return 'practice-page'
     }
     if (rawHash === 'practice/contract-analysis') {
+      setIsPracticePageOpen(true)
       setPracticeView('analysis-catalog')
       setActiveChatCaseId(null)
       setActiveScenarioId(null)
       setActiveAnalysisContractId(null)
-      return 'practice'
+      setActiveSection('practice')
+      return 'practice-page'
     }
     if (rawHash.startsWith('practice/contract-analysis/')) {
       const id = rawHash.replace('practice/contract-analysis/', '')
       const exists = contractAnalysisData.some((c) => c.id === id)
+      setIsPracticePageOpen(true)
       setActiveChatCaseId(null)
       setActiveScenarioId(null)
+      setActiveSection('practice')
       if (exists) {
         setActiveAnalysisContractId(id)
         setPracticeView('analysis-play')
@@ -492,20 +669,24 @@ function App() {
         setActiveAnalysisContractId(null)
         setPracticeView('analysis-catalog')
       }
-      return 'practice'
+      return 'practice-page'
     }
     if (rawHash === 'practice/scenarios') {
+      setIsPracticePageOpen(true)
       setPracticeView('scenarios-catalog')
       setActiveChatCaseId(null)
       setActiveScenarioId(null)
       setActiveAnalysisContractId(null)
-      return 'practice'
+      setActiveSection('practice')
+      return 'practice-page'
     }
     if (rawHash.startsWith('practice/scenarios/')) {
       const id = rawHash.replace('practice/scenarios/', '')
       const exists = legalCasesData.some((c) => c.id === id)
+      setIsPracticePageOpen(true)
       setActiveChatCaseId(null)
       setActiveAnalysisContractId(null)
+      setActiveSection('practice')
       if (exists) {
         setActiveScenarioId(id)
         setPracticeView('scenario-play')
@@ -513,23 +694,45 @@ function App() {
         setActiveScenarioId(null)
         setPracticeView('scenarios-catalog')
       }
-      return 'practice'
+      return 'practice-page'
     }
+    if (rawHash === 'practice/penalty-calculator') {
+      setIsPracticePageOpen(true)
+      setPracticeView('penalty-calculator')
+      setActiveChatCaseId(null)
+      setActiveScenarioId(null)
+      setActiveAnalysisContractId(null)
+      setActiveSection('practice')
+      return 'practice-page'
+    }
+    setIsPracticePageOpen(false)
     if (rawHash === 'practice') {
+      setIsGamesPageOpen(false)
       setPracticeView('menu')
       setActiveChatCaseId(null)
       setActiveScenarioId(null)
       setActiveAnalysisContractId(null)
       return 'practice'
     }
+    if (rawHash === 'games/catalog') {
+      setIsGamesPageOpen(true)
+      setGamesView('menu')
+      setActiveCrosswordId(null)
+      setActiveSection('games')
+      return 'games-page'
+    }
     if (rawHash === 'games/crosswords') {
+      setIsGamesPageOpen(true)
       setGamesView('crosswords-catalog')
       setActiveCrosswordId(null)
-      return 'games'
+      setActiveSection('games')
+      return 'games-page'
     }
     if (rawHash.startsWith('games/crosswords/')) {
       const id = rawHash.replace('games/crosswords/', '')
       const exists = crosswordPuzzles.some((p) => p.id === id)
+      setIsGamesPageOpen(true)
+      setActiveSection('games')
       if (exists) {
         setActiveCrosswordId(id)
         setGamesView('crossword-play')
@@ -537,18 +740,23 @@ function App() {
         setActiveCrosswordId(null)
         setGamesView('crosswords-catalog')
       }
-      return 'games'
+      return 'games-page'
     }
     if (rawHash === 'games/wheel') {
+      setIsGamesPageOpen(true)
       setGamesView('wheel-play')
       setActiveCrosswordId(null)
-      return 'games'
+      setActiveSection('games')
+      return 'games-page'
     }
     if (rawHash === 'games/time') {
+      setIsGamesPageOpen(true)
       setGamesView('time-play')
       setActiveCrosswordId(null)
-      return 'games'
+      setActiveSection('games')
+      return 'games-page'
     }
+    setIsGamesPageOpen(false)
     if (rawHash === 'games') {
       setGamesView('menu')
       setActiveCrosswordId(null)
@@ -558,80 +766,128 @@ function App() {
   }
 
   const openSituationsCatalog = () => {
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsPracticePageOpen(true)
     setActiveChatCaseId(null)
     setActiveScenarioId(null)
     setActiveAnalysisContractId(null)
     setPracticeView('situations-catalog')
     setActiveSection('practice')
     window.history.pushState(null, '', '#practice/situations')
-    const el = document.getElementById('practice')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const openSituationChatCase = (chatCase: LegalChatCase) => {
+    setIsPracticePageOpen(true)
     setActiveScenarioId(null)
     setActiveAnalysisContractId(null)
     setActiveChatCaseId(chatCase.id)
     setPracticeView('situation-play')
     setActiveSection('practice')
     window.history.pushState(null, '', `#practice/situations/${chatCase.id}`)
-    const el = document.getElementById('practice')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const openContractErrorsPractice = () => {
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsPracticePageOpen(true)
     setActiveChatCaseId(null)
     setActiveScenarioId(null)
     setActiveAnalysisContractId(null)
     setPracticeView('contract-errors')
     setActiveSection('practice')
     window.history.pushState(null, '', '#practice/contract-errors')
-    const el = document.getElementById('practice')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const openContractAnalysisCatalog = () => {
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsPracticePageOpen(true)
     setActiveChatCaseId(null)
     setActiveScenarioId(null)
     setActiveAnalysisContractId(null)
     setPracticeView('analysis-catalog')
     setActiveSection('practice')
     window.history.pushState(null, '', '#practice/contract-analysis')
-    const el = document.getElementById('practice')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const openContractAnalysisItem = (contract: ContractAnalysisItem) => {
+    setIsPracticePageOpen(true)
     setActiveChatCaseId(null)
     setActiveScenarioId(null)
     setActiveAnalysisContractId(contract.id)
     setPracticeView('analysis-play')
     setActiveSection('practice')
     window.history.pushState(null, '', `#practice/contract-analysis/${contract.id}`)
-    const el = document.getElementById('practice')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const openScenariosCatalog = () => {
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsPracticePageOpen(true)
     setActiveChatCaseId(null)
     setActiveScenarioId(null)
     setActiveAnalysisContractId(null)
     setPracticeView('scenarios-catalog')
     setActiveSection('practice')
     window.history.pushState(null, '', '#practice/scenarios')
-    const el = document.getElementById('practice')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const openScenarioCase = (scenario: LegalCaseScenario) => {
+    setIsPracticePageOpen(true)
     setActiveChatCaseId(null)
     setActiveAnalysisContractId(null)
     setActiveScenarioId(scenario.id)
     setPracticeView('scenario-play')
     setActiveSection('practice')
     window.history.pushState(null, '', `#practice/scenarios/${scenario.id}`)
-    const el = document.getElementById('practice')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const openPenaltyCalculator = () => {
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsGamesPageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsPracticePageOpen(true)
+    setActiveChatCaseId(null)
+    setActiveScenarioId(null)
+    setActiveAnalysisContractId(null)
+    setPracticeView('penalty-calculator')
+    setActiveSection('practice')
+    window.history.pushState(null, '', '#practice/penalty-calculator')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleRecordPenaltyCaseSolved = (caseNumber: number) => {
+    const res = recordPenaltyCaseSolved(crosswordProgress, caseNumber, PENALTY_CASES.length)
+    setCrosswordProgress(res.nextMap)
+    if (res.xpGainedNow > 0) {
+      notifyXPAward(res)
+    }
+    syncAchievementsAfterProgress(res.nextMap)
+    return {
+      xpGainedNow: res.xpGainedNow,
+      alreadyCompleted: res.alreadyCompleted,
+      solvedCaseNumbers: res.solvedCaseNumbers,
+      justSolvedThisCase: res.justSolvedThisCase,
+      allCasesSolved: res.allCasesSolved,
+    }
   }
 
   const backToPracticeMenu = () => {
@@ -639,12 +895,30 @@ function App() {
     setActiveScenarioId(null)
     setActiveAnalysisContractId(null)
     setPracticeView('menu')
-    window.history.pushState(null, '', '#practice')
+    setIsPracticePageOpen(true)
+    setActiveSection('practice')
+    window.history.pushState(null, '', '#practice/catalog')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleAwardTaskXP = (payload: AwardXPPayload) => {
+    const res = awardXP(crosswordProgress, payload)
+    setCrosswordProgress(res.nextMap)
+    notifyXPAward(res)
+    syncAchievementsAfterProgress(res.nextMap)
+    return {
+      xpGainedNow: res.xpGainedNow,
+      alreadyCompleted: res.alreadyCompleted,
+      leveledUp: res.leveledUp,
+      newLevel: res.newLevel,
+    }
   }
 
   const handleRecordChatCaseAnswer = (caseId: string, isCorrect: boolean) => {
     const res = recordLegalChatCaseResult(crosswordProgress, caseId, isCorrect)
     setCrosswordProgress(res.nextMap)
+    notifyXPAward(res)
+    syncAchievementsAfterProgress(res.nextMap)
     return { xpGainedNow: res.xpGainedNow, alreadyAwarded: res.alreadyAwarded }
   }
 
@@ -660,55 +934,77 @@ function App() {
   const handleCompleteContractAnalysis = (contractId: string, totalSteps: number) => {
     const res = completeContractAnalysis(crosswordProgress, contractId, totalSteps)
     setCrosswordProgress(res.nextMap)
+    notifyXPAward(res)
+    syncAchievementsAfterProgress(res.nextMap)
     return { xpGainedNow: res.xpGainedNow, alreadyCompleted: res.alreadyCompleted }
   }
 
   const handleCompleteLegalCase = (caseId: string, correctCount: number) => {
     const res = recordLegalCaseResult(crosswordProgress, caseId, correctCount)
     setCrosswordProgress(res.nextMap)
+    notifyXPAward(res)
+    syncAchievementsAfterProgress(res.nextMap)
     return { xpGainedNow: res.xpGainedNow, alreadyCompleted: res.alreadyCompleted }
   }
 
   const openWheelGame = () => {
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsGamesPageOpen(true)
     setActiveCrosswordId(null)
     setGamesView('wheel-play')
     setActiveSection('games')
     window.history.pushState(null, '', '#games/wheel')
-    const el = document.getElementById('games')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const openTimedGame = () => {
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsGamesPageOpen(true)
     setActiveCrosswordId(null)
     setGamesView('time-play')
     setActiveSection('games')
     window.history.pushState(null, '', '#games/time')
-    const el = document.getElementById('games')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const openCrosswordsCatalog = () => {
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsAchievementsPageOpen(false)
+    setIsGamesPageOpen(true)
     setActiveCrosswordId(null)
     setGamesView('crosswords-catalog')
     setActiveSection('games')
     window.history.pushState(null, '', '#games/crosswords')
-    const el = document.getElementById('games')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const openCrosswordPuzzle = (puzzle: CrosswordPuzzle) => {
+    setIsGamesPageOpen(true)
     setActiveCrosswordId(puzzle.id)
     setGamesView('crossword-play')
     setActiveSection('games')
     window.history.pushState(null, '', `#games/crosswords/${puzzle.id}`)
-    const el = document.getElementById('games')
-    if (el) el.scrollIntoView({ behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const backToGamesMenu = () => {
     setActiveCrosswordId(null)
     setGamesView('menu')
-    window.history.pushState(null, '', '#games')
+    setIsGamesPageOpen(true)
+    setActiveSection('games')
+    window.history.pushState(null, '', '#games/catalog')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleRecordCrosswordResult = (
@@ -718,6 +1014,11 @@ function App() {
   ) => {
     const res = recordCrosswordResult(crosswordProgress, puzzleId, solvedWordNumbers, totalWords)
     setCrosswordProgress(res.nextMap)
+    // Показываем уведомление о XP и проверяем достижения при полном верном завершении кроссворда
+    if (solvedWordNumbers.length >= totalWords) {
+      notifyXPAward(res)
+      syncAchievementsAfterProgress(res.nextMap)
+    }
     return { xpGainedNow: res.xpGainedNow, alreadyMaxed: res.alreadyMaxed }
   }
 
@@ -728,18 +1029,23 @@ function App() {
     if (themeMeta) {
       themeMeta.setAttribute('content', theme === 'dark' ? '#0c1412' : '#ecf5f0')
     }
-    try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, theme)
-    } catch {
-      /* локальное хранилище может быть недоступно */
-    }
   }, [theme])
 
   const toggleTheme = () => {
-    setTheme((current) => (current === 'dark' ? 'light' : 'dark'))
+    handleChangeTheme(theme === 'dark' ? 'light' : 'dark')
   }
 
   useEffect(() => {
+    if (
+      isSettingsOpen ||
+      isLibraryPageOpen ||
+      isTrainerPageOpen ||
+      isPracticePageOpen ||
+      isGamesPageOpen ||
+      isAchievementsPageOpen
+    ) {
+      return
+    }
     const sectionIds = ['home', 'library', 'trainer', 'practice', 'games', 'achievements']
 
     const handleScroll = () => {
@@ -768,7 +1074,14 @@ function App() {
     handleScroll()
 
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+  }, [
+    isSettingsOpen,
+    isLibraryPageOpen,
+    isTrainerPageOpen,
+    isPracticePageOpen,
+    isGamesPageOpen,
+    isAchievementsPageOpen,
+  ])
 
   useEffect(() => {
     const targetSection = syncFromHash()
@@ -798,6 +1111,20 @@ function App() {
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
     e.preventDefault()
+    setIsMobileMenuOpen(false)
+    const wasOnStandalonePage =
+      isSettingsOpen ||
+      isLibraryPageOpen ||
+      isTrainerPageOpen ||
+      isPracticePageOpen ||
+      isGamesPageOpen ||
+      isAchievementsPageOpen
+    setIsSettingsOpen(false)
+    setIsLibraryPageOpen(false)
+    setIsTrainerPageOpen(false)
+    setIsPracticePageOpen(false)
+    setIsGamesPageOpen(false)
+    setIsAchievementsPageOpen(false)
     if (targetId === 'practice') {
       setPracticeView('menu')
       setActiveChatCaseId(null)
@@ -808,94 +1135,367 @@ function App() {
       setGamesView('menu')
       setActiveCrosswordId(null)
     }
-    const target = document.getElementById(targetId)
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth' })
-      setActiveSection(targetId)
-      window.history.pushState(null, '', `#${targetId}`)
+    setActiveSection(targetId)
+    window.history.pushState(null, '', `#${targetId}`)
+
+    const scrollToTarget = () => {
+      if (targetId === 'home') {
+        if (wasOnStandalonePage) {
+          scrollTopInstant()
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+        return
+      }
+      const target = document.getElementById(targetId)
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth' })
+      }
+    }
+
+    if (wasOnStandalonePage) {
+      scrollTopInstant()
+      if (targetId !== 'home') {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(scrollToTarget)
+        })
+      }
+    } else {
+      scrollToTarget()
     }
   }
 
+  const currentPageKey = isSettingsOpen
+    ? 'settings'
+    : isLibraryPageOpen
+    ? 'library'
+    : isTrainerPageOpen
+    ? 'trainer'
+    : isPracticePageOpen
+    ? 'practice'
+    : isGamesPageOpen
+    ? 'games'
+    : isAchievementsPageOpen
+    ? 'achievements'
+    : 'home'
+
+  const scrollRouteKey = `${currentPageKey}:${practiceView}:${gamesView}:${activeChatCaseId ?? ''}:${activeScenarioId ?? ''}:${activeAnalysisContractId ?? ''}:${activeCrosswordId ?? ''}`
+  useScrollReveal(scrollRouteKey)
+
   return (
-    <div className="site-shell">
+    <>
+      {/* Живой ненавязчивый анимированный фон (вне переходов маршрутов — без мерцания) */}
+      <AmbientBackground />
+
+      {/* Тонкий индикатор прокрутки страницы в самом верху окна */}
+      <ScrollProgressBar routeKey={scrollRouteKey} />
+
+      <LegalSearchPreloader onRevealStart={() => setIsHeroReadyForTyping(true)} />
+
+      {/* Полноширинная верхняя панель (фон и нижняя граница на 100% ширины окна) */}
       <header className="topbar">
-        <a
-          className="brand"
-          href="#home"
-          onClick={(e) => handleNavClick(e, 'home')}
-          aria-label="Law Quiz KZ — на главную"
-        >
-          <span className="brand-mark">LQ</span>
-          <span>
-            Law Quiz <span className="brand-accent">KZ</span>
-          </span>
-        </a>
-
-        <nav className="navigation" aria-label="Основная навигация">
-          {navItems.map((item) => (
-            <a
-              key={item.id}
-              href={`#${item.id}`}
-              onClick={(e) => handleNavClick(e, item.id)}
-              className={`nav-link ${activeSection === item.id ? 'active' : ''}`}
-            >
-              {item.label}
-            </a>
-          ))}
-        </nav>
-
-        <div className="topbar-actions">
-          <button
-            type="button"
-            className={`theme-toggle ${theme === 'dark' ? 'is-dark' : 'is-light'}`}
-            onClick={toggleTheme}
-            aria-pressed={theme === 'dark'}
-            aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
-            title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
-          >
-            <span className="theme-toggle-icon" aria-hidden="true">
-              {theme === 'dark' ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="4" />
-                  <path d="M12 2v2" />
-                  <path d="M12 20v2" />
-                  <path d="m4.93 4.93 1.41 1.41" />
-                  <path d="m17.66 17.66 1.41 1.41" />
-                  <path d="M2 12h2" />
-                  <path d="M20 12h2" />
-                  <path d="m6.34 17.66-1.41 1.41" />
-                  <path d="m19.07 4.93-1.41 1.41" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-                </svg>
-              )}
-            </span>
-            <span className="theme-toggle-label">{theme === 'dark' ? 'Светлая' : 'Тёмная'}</span>
-          </button>
-
+        <div className="topbar-inner">
           <a
-            className="nav-cta"
-            href="#library"
-            onClick={(e) => handleNavClick(e, 'library')}
+            className="brand"
+            href="#home"
+            onClick={(e) => handleNavClick(e, 'home')}
+            aria-label="Law Quiz KZ — на главную"
           >
-            К разделам <span aria-hidden="true">↗</span>
+            <span className="brand-mark">LQ</span>
+            <span>
+              Law Quiz <span className="brand-accent">KZ</span>
+            </span>
           </a>
+
+          <nav className="navigation" aria-label="Основная навигация">
+            {navItems.map((item) => {
+              const isActive =
+                !isSettingsOpen && !isAchievementsPageOpen && activeSection === item.id
+              return (
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  onClick={(e) => handleNavClick(e, item.id)}
+                  className={`nav-link ${isActive ? 'active' : ''}`}
+                  aria-current={isActive ? 'page' : undefined}
+                >
+                  <span className="nav-link-text" data-label={item.label}>
+                    {item.label}
+                  </span>
+                </a>
+              )
+            })}
+          </nav>
+
+          <div className="topbar-actions">
+            <button
+              type="button"
+              className={`achievements-nav-btn ${
+                !isSettingsOpen && isAchievementsPageOpen ? 'is-active' : ''
+              }`}
+              onClick={openAchievementsPage}
+              aria-current={!isSettingsOpen && isAchievementsPageOpen ? 'page' : undefined}
+              aria-label={
+                unseenAchievementsCount > 0
+                  ? `Достижения — новых непросмотренных: ${unseenAchievementsCount}`
+                  : 'Открыть страницу достижений'
+              }
+              title="Достижения"
+            >
+              <span className="ach-nav-icon-wrap" aria-hidden="true">
+                <svg
+                  className="ach-nav-trophy-svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.15"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                  <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                  <path d="M4 22h16" />
+                  <path d="M10 14.66V17c0 .55-.45 1-1 1H8v2h8v-2h-1c-.55 0-1-.45-1-1v-2.34" />
+                  <path d="M18 4H6v7a6 6 0 0 0 12 0V4Z" />
+                </svg>
+                {unseenAchievementsCount > 0 && (
+                  <span className="ach-nav-badge" aria-hidden="true">
+                    {unseenAchievementsCount}
+                  </span>
+                )}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className={`settings-nav-btn ${isSettingsOpen ? 'is-active' : ''}`}
+              onClick={openSettingsPage}
+              aria-expanded={isSettingsOpen}
+              aria-label="Открыть настройки сайта"
+              title="Настройки"
+            >
+              <span className="settings-nav-icon" aria-hidden="true">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+                </svg>
+              </span>
+              <span className="settings-nav-label">Настройки</span>
+            </button>
+
+            <button
+              type="button"
+              className={`theme-toggle ${theme === 'dark' ? 'is-dark' : 'is-light'}`}
+              onClick={toggleTheme}
+              aria-pressed={theme === 'dark'}
+              aria-label={theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'}
+              title={theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'}
+            >
+              <span className="theme-toggle-icon" aria-hidden="true">
+                {theme === 'dark' ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 2v2" />
+                    <path d="M12 20v2" />
+                    <path d="m4.93 4.93 1.41 1.41" />
+                    <path d="m17.66 17.66 1.41 1.41" />
+                    <path d="M2 12h2" />
+                    <path d="M20 12h2" />
+                    <path d="m6.34 17.66-1.41 1.41" />
+                    <path d="m19.07 4.93-1.41 1.41" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                  </svg>
+                )}
+              </span>
+              <span className="theme-toggle-label">{theme === 'dark' ? 'Светлая' : 'Тёмная'}</span>
+            </button>
+
+            <a
+              className="nav-cta"
+              href="#library"
+              onClick={(e) => handleNavClick(e, 'library')}
+            >
+              К разделам <span aria-hidden="true">↗</span>
+            </a>
+
+            <button
+              type="button"
+              className={`mobile-menu-toggle ${isMobileMenuOpen ? 'is-open' : ''}`}
+              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-nav-drawer"
+              aria-label={isMobileMenuOpen ? 'Закрыть меню навигации' : 'Открыть меню навигации'}
+            >
+              <span className="burger-bar burger-bar-1" aria-hidden="true" />
+              <span className="burger-bar burger-bar-2" aria-hidden="true" />
+              <span className="burger-bar burger-bar-3" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        {/* Раскрывающееся мобильное меню навигации */}
+        <div
+          id="mobile-nav-drawer"
+          className={`mobile-nav-drawer ${isMobileMenuOpen ? 'is-open' : ''}`}
+          aria-hidden={!isMobileMenuOpen}
+        >
+          <div className="mobile-nav-drawer-inner">
+            <nav className="mobile-nav-list" aria-label="Мобильная навигация">
+              {navItems.map((item) => {
+                const isActive =
+                  !isSettingsOpen && !isAchievementsPageOpen && activeSection === item.id
+                return (
+                  <a
+                    key={item.id}
+                    href={`#${item.id}`}
+                    tabIndex={isMobileMenuOpen ? 0 : -1}
+                    onClick={(e) => handleNavClick(e, item.id)}
+                    className={`mobile-nav-link ${isActive ? 'active' : ''}`}
+                  >
+                    <span className="mobile-nav-dot" aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </a>
+                )
+              })}
+            </nav>
+
+            <div className="mobile-nav-quick-actions">
+              <button
+                type="button"
+                tabIndex={isMobileMenuOpen ? 0 : -1}
+                className={`mobile-nav-action-btn ${
+                  !isSettingsOpen && isAchievementsPageOpen ? 'is-active' : ''
+                }`}
+                onClick={openAchievementsPage}
+              >
+                <span>Достижения</span>
+                {unseenAchievementsCount > 0 && (
+                  <span className="mobile-nav-badge">{unseenAchievementsCount}</span>
+                )}
+              </button>
+              <button
+                type="button"
+                tabIndex={isMobileMenuOpen ? 0 : -1}
+                className={`mobile-nav-action-btn ${isSettingsOpen ? 'is-active' : ''}`}
+                onClick={openSettingsPage}
+              >
+                <span>Настройки</span>
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
-      <main>
+      {isMobileMenuOpen && (
+        <div
+          className="mobile-nav-backdrop"
+          aria-hidden="true"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      <div className="site-shell">
+
+      <main className="site-main">
+        <div key={currentPageKey} className="page-transition-stage">
+        {isSettingsOpen ? (
+          <SettingsPage
+            settings={siteSettings}
+            onChangeTheme={handleChangeTheme}
+            onToggleVisualNotifications={handleToggleVisualNotifications}
+            onToggleSound={handleToggleSound}
+            onBack={closeSettingsPage}
+          />
+        ) : isLibraryPageOpen ? (
+          <LibraryPage onBackToHome={closeLibraryPageToHome} />
+        ) : isTrainerPageOpen ? (
+          <TrainerPage
+            progressMap={crosswordProgress}
+            onAwardXP={handleAwardTaskXP}
+            onBackToHome={closeTrainerPageToHome}
+          />
+        ) : isPracticePageOpen ? (
+          <PracticePage
+            practiceView={practiceView}
+            activeChatCaseId={activeChatCaseId}
+            activeScenarioId={activeScenarioId}
+            activeAnalysisContractId={activeAnalysisContractId}
+            progressMap={crosswordProgress}
+            onBackToHome={closePracticePageToHome}
+            onBackToPracticeMenu={backToPracticeMenu}
+            onOpenSituationsCatalog={openSituationsCatalog}
+            onOpenSituationChatCase={openSituationChatCase}
+            onOpenContractErrors={openContractErrorsPractice}
+            onOpenContractAnalysisCatalog={openContractAnalysisCatalog}
+            onOpenContractAnalysisItem={openContractAnalysisItem}
+            onOpenScenariosCatalog={openScenariosCatalog}
+            onOpenScenarioCase={openScenarioCase}
+            onOpenPenaltyCalculator={openPenaltyCalculator}
+            onRecordChatCaseAnswer={handleRecordChatCaseAnswer}
+            onAwardTaskXP={handleAwardTaskXP}
+            onSaveContractAnalysisStep={handleSaveContractAnalysisStep}
+            onCompleteContractAnalysis={handleCompleteContractAnalysis}
+            onCompleteLegalCase={handleCompleteLegalCase}
+            onRecordPenaltyCaseSolved={handleRecordPenaltyCaseSolved}
+          />
+        ) : isGamesPageOpen ? (
+          <GamesPage
+            gamesView={gamesView}
+            activeCrosswordId={activeCrosswordId}
+            progressMap={crosswordProgress}
+            onBackToHome={closeGamesPageToHome}
+            onBackToGamesMenu={backToGamesMenu}
+            onOpenCrosswordsCatalog={openCrosswordsCatalog}
+            onOpenCrosswordPuzzle={openCrosswordPuzzle}
+            onOpenWheelGame={openWheelGame}
+            onOpenTimedGame={openTimedGame}
+            onRecordCrosswordResult={handleRecordCrosswordResult}
+            onAwardTaskXP={handleAwardTaskXP}
+          />
+        ) : isAchievementsPageOpen ? (
+          <AchievementsPage
+            evaluatedAchievements={evaluatedAchievements}
+            notificationSettings={notificationSettings}
+            onResetProgress={handleResetGameProgress}
+            onBackToHome={closeAchievementsPageToHome}
+          />
+        ) : (
+          <>
         {/* Главный экран (Hero) */}
         <section className="hero" id="home">
+          {/* Плавающие полупрозрачные юридические символы на заднем фоне баннера */}
+          <div className="hero-floating-symbols" aria-hidden="true">
+            <span className="hero-float-symbol sym-glyph sym-pos-1">§</span>
+            <span className="hero-float-symbol sym-glyph sym-pos-2 is-mobile-hidden">⚖</span>
+            <span className="hero-float-symbol sym-emoji sym-pos-3">📜</span>
+            <span className="hero-float-symbol sym-emoji sym-pos-4 is-mobile-hidden">📖</span>
+            <span className="hero-float-symbol sym-glyph sym-pos-5 is-mobile-hidden">§</span>
+            <span className="hero-float-symbol sym-glyph sym-pos-6">⚖</span>
+            <span className="hero-float-symbol sym-emoji sym-pos-7">📖</span>
+            <span className="hero-float-symbol sym-glyph sym-pos-8 is-mobile-hidden">§</span>
+            <span className="hero-float-symbol sym-emoji sym-pos-9">📜</span>
+            <span className="hero-float-symbol sym-glyph sym-pos-10">⚖</span>
+          </div>
+
           <div className="hero-copy">
             <div className="eyebrow">
               <span className="eyebrow-dot" /> ОБРАЗОВАТЕЛЬНАЯ ПЛАТФОРМА
             </div>
-            <h1>
-              Разбирайся в праве.<br />
-              <span>Уверенно.</span>
-            </h1>
+            <HeroTypewriterTitle start={isHeroReadyForTyping} />
             <p className="hero-description">
               Изучай основы гражданского права Республики Казахстан в одном месте.
               Понятная структура для обучения, повторения и закрепления знаний.
@@ -920,8 +1520,83 @@ function App() {
                 <i />
               </div>
             </div>
-            <div className="art-card art-card-main">
-              <div className="scale-icon">⚖</div>
+            <div className="art-card art-card-main scales-levitate-hero">
+              <div className="scale-icon">
+                <svg
+                  className="hero-scales-svg"
+                  width="64"
+                  height="64"
+                  viewBox="0 0 64 64"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                >
+                  {/* Основание и центральная стойка весов (статичны) */}
+                  <g className="scale-stand">
+                    <path
+                      d="M32 11V51"
+                      stroke="currentColor"
+                      strokeWidth="3.2"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M21 53H43"
+                      stroke="currentColor"
+                      strokeWidth="3.6"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M25.5 49.5C27.5 48.2 36.5 48.2 38.5 49.5L40.5 53H23.5L25.5 49.5Z"
+                      fill="currentColor"
+                      opacity="0.9"
+                    />
+                    <circle cx="32" cy="11" r="2.8" fill="currentColor" />
+                  </g>
+
+                  {/* Подвижное коромысло с чашами, сохраняющими горизонтальный баланс */}
+                  <g className="scale-beam-group">
+                    <path
+                      d="M14 19C20 17.5 26 16.8 32 16.8C38 16.8 44 17.5 50 19"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+                    <circle cx="32" cy="16.8" r="2.6" fill="currentColor" />
+                    <circle cx="14" cy="19" r="2.1" fill="currentColor" />
+                    <circle cx="50" cy="19" r="2.1" fill="currentColor" />
+
+                    {/* Левый подвес и чаша */}
+                    <g className="scale-pan-left">
+                      <path
+                        d="M14 20.5L7.8 36.5M14 20.5L20.2 36.5"
+                        stroke="currentColor"
+                        strokeWidth="1.9"
+                        strokeLinecap="round"
+                        opacity="0.88"
+                      />
+                      <path
+                        d="M6.2 36.5H21.8C20.9 41.2 17.9 43.4 14 43.4C10.1 43.4 7.1 41.2 6.2 36.5Z"
+                        fill="currentColor"
+                      />
+                    </g>
+
+                    {/* Правый подвес и чаша */}
+                    <g className="scale-pan-right">
+                      <path
+                        d="M50 20.5L43.8 36.5M50 20.5L56.2 36.5"
+                        stroke="currentColor"
+                        strokeWidth="1.9"
+                        strokeLinecap="round"
+                        opacity="0.88"
+                      />
+                      <path
+                        d="M42.2 36.5H57.8C56.9 41.2 53.9 43.4 50 43.4C46.1 43.4 43.1 41.2 42.2 36.5Z"
+                        fill="currentColor"
+                      />
+                    </g>
+                  </g>
+                </svg>
+              </div>
               <div className="art-card-rule" />
               <span className="art-card-caption">ЗНАНИЯ · ПРАВО · ПРАКТИКА</span>
             </div>
@@ -952,582 +1627,170 @@ function App() {
           </div>
         </div>
 
-        {/* 1. Правовая библиотека (V3: Юридическое наполнение материалами по ГК РК) */}
-        <LibrarySection />
+        {/* 1. Правовая библиотека (презентационная карточка с переходом на отдельную страницу) */}
+        <LibrarySection onOpenLibrary={openLibraryPage} />
 
-        {/* 2. Тренажёр знаний (Интерактивные тесты и режим «Правда или миф?») */}
-        <TrainerSection />
+        {/* 2. Тренажёр знаний (презентационная карточка с переходом на отдельную страницу) */}
+        <TrainerSection onOpenTrainer={openTrainerPage} />
 
-        {/* 3. Юридическая практика */}
-        <section className="content-section" id="practice" aria-labelledby="practice-heading">
-          <div className="section-container">
-            <div className="section-header-row">
-              <div className="section-title-wrap">
-                <div className="section-badge-line">
-                  <span className="section-num-pill">03 / 05</span>
-                  <span className="section-category-tag">ПРАКТИКУМ И КЕЙСЫ</span>
-                </div>
-                <h2 id="practice-heading" className="section-main-title">
-                  Юридическая практика
-                </h2>
-                <p className="section-main-desc">
-                  Раздел с учебными правовыми ситуациями и практическими заданиями.
-                </p>
-              </div>
-              <div className="section-header-icon" aria-hidden="true">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-                  <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
-                  <path d="M7 21h10" />
-                  <path d="M12 3v18" />
-                  <path d="M3 7h18" />
-                </svg>
-              </div>
-            </div>
+        {/* 3. Юридическая практика (презентационная карточка с переходом на отдельную страницу) */}
+        <PracticeSection onOpenPractice={openPracticePage} />
 
-            {practiceView === 'menu' && (
-              <>
-                <div className="practice-grid">
-                  {practiceCards.map((card, index) => {
-                    const isSituationsCard = card.id === 'prac-situations'
-                    const isContractErrorsCard = card.id === 'prac-errors'
-                    const isContractAnalysisCard = card.id === 'prac-contracts'
-                    const isScenariosCard = card.id === 'prac-scenarios'
-                    const isInteractivePractice =
-                      isSituationsCard ||
-                      isContractErrorsCard ||
-                      isContractAnalysisCard ||
-                      isScenariosCard
-                    const handleOpenPractice = isSituationsCard
-                      ? openSituationsCatalog
-                      : isContractErrorsCard
-                      ? openContractErrorsPractice
-                      : isContractAnalysisCard
-                      ? openContractAnalysisCatalog
-                      : isScenariosCard
-                      ? openScenariosCatalog
-                      : undefined
+        {/* 4. Игровая зона (презентационная карточка с переходом на отдельную страницу) */}
+        <GamesSection onOpenGames={openGamesPage} />
 
-                    return (
-                      <article
-                        key={card.id}
-                        className={`edu-card edu-card-tone-${index % 3} ${
-                          isInteractivePractice ? 'game-card-interactive' : ''
-                        }`}
-                        onClick={handleOpenPractice}
-                        role={isInteractivePractice ? 'button' : undefined}
-                        tabIndex={isInteractivePractice ? 0 : undefined}
-                        onKeyDown={
-                          handleOpenPractice
-                            ? (e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault()
-                                  handleOpenPractice()
-                                }
-                              }
-                            : undefined
-                        }
-                        aria-label={
-                          isSituationsCard
-                            ? 'Открыть тренажёр «Разбор юридических ситуаций»'
-                            : isContractErrorsCard
-                            ? 'Открыть практику «Поиск ошибок в учебном договоре»'
-                            : isContractAnalysisCard
-                            ? 'Открыть раздел «Пошаговый разбор договоров»'
-                            : isScenariosCard
-                            ? 'Открыть интерактив «Выбери развитие событий»'
-                            : undefined
-                        }
-                      >
-                        <div className="card-topline">
-                          <span className="card-icon-badge" aria-hidden="true">
-                            {card.icon}
-                          </span>
-                          <span className="card-pill-tag">
-                            {isSituationsCard
-                              ? `${legalChatCases.length} кейса · ${completedChatCasesCount}/${legalChatCases.length}`
-                              : isContractErrorsCard
-                              ? '4 договора · ГК РК'
-                              : isContractAnalysisCard
-                              ? `${contractAnalysisData.length} договора · ${completedContractsCount}/${contractAnalysisData.length}`
-                              : isScenariosCard
-                              ? `${legalCasesData.length} дела · ${completedCasesCount}/${legalCasesData.length}`
-                              : card.focus}
-                          </span>
-                        </div>
-                        <h3 className="card-heading">{card.title}</h3>
-                        <p className="edu-card-desc">{card.description}</p>
-                        <div className="card-action-row">
-                          {isSituationsCard ? (
-                            <button
-                              type="button"
-                              className="card-action-btn primary-start-btn"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openSituationsCatalog()
-                              }}
-                            >
-                              <span>Открыть ситуации</span>
-                              <span aria-hidden="true">→</span>
-                            </button>
-                          ) : isContractErrorsCard ? (
-                            <button
-                              type="button"
-                              className="card-action-btn primary-start-btn"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openContractErrorsPractice()
-                              }}
-                            >
-                              <span>Открыть практику</span>
-                              <span aria-hidden="true">→</span>
-                            </button>
-                          ) : isContractAnalysisCard ? (
-                            <button
-                              type="button"
-                              className="card-action-btn primary-start-btn"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openContractAnalysisCatalog()
-                              }}
-                            >
-                              <span>Открыть разбор</span>
-                              <span aria-hidden="true">→</span>
-                            </button>
-                          ) : isScenariosCard ? (
-                            <button
-                              type="button"
-                              className="card-action-btn primary-start-btn"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openScenariosCatalog()
-                              }}
-                            >
-                              <span>Открыть дела</span>
-                              <span aria-hidden="true">→</span>
-                            </button>
-                          ) : (
-                            <span className="card-status-pill">
-                              <span className="status-dot" aria-hidden="true" />
-                              <span>{card.status}</span>
-                            </span>
-                          )}
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-
-                <div className="section-status-banner">
-                  <span className="status-dot" aria-hidden="true" />
-                  <span>
-                    Все четыре практикума раздела активны: «Разбор юридических ситуаций» (4 кейса в формате переписки), «Поиск ошибок в учебном договоре», «Пошаговый разбор договоров» и «Выбери развитие событий».
-                  </span>
-                </div>
-              </>
-            )}
-
-            {(practiceView === 'situations-catalog' || practiceView === 'situation-play') && (
-              <LegalChatCases
-                activeCaseId={practiceView === 'situation-play' ? activeChatCaseId : null}
-                progressMap={crosswordProgress}
-                onSelectCase={openSituationChatCase}
-                onBackToCatalog={openSituationsCatalog}
-                onBackToPractice={backToPracticeMenu}
-                onRecordAnswer={handleRecordChatCaseAnswer}
-              />
-            )}
-
-            {practiceView === 'contract-errors' && (
-              <ContractErrorPractice onBackToPractice={backToPracticeMenu} />
-            )}
-
-            {practiceView === 'analysis-catalog' && (
-              <ContractAnalysisCatalog
-                progressMap={crosswordProgress}
-                onSelectContract={openContractAnalysisItem}
-                onBackToPractice={backToPracticeMenu}
-              />
-            )}
-
-            {practiceView === 'analysis-play' && activeAnalysisContract && (
-              <ContractAnalysisViewer
-                key={activeAnalysisContract.id}
-                contract={activeAnalysisContract}
-                progress={crosswordProgress[activeAnalysisContract.id]}
-                nextContract={nextAnalysisContract}
-                onBackToCatalog={openContractAnalysisCatalog}
-                onSelectContract={openContractAnalysisItem}
-                onSaveStep={handleSaveContractAnalysisStep}
-                onCompleteContract={handleCompleteContractAnalysis}
-              />
-            )}
-
-            {practiceView === 'scenarios-catalog' && (
-              <LegalCasesCatalog
-                progressMap={crosswordProgress}
-                onSelectCase={openScenarioCase}
-                onBackToPractice={backToPracticeMenu}
-              />
-            )}
-
-            {practiceView === 'scenario-play' && activeScenario && (
-              <LegalCasePlayer
-                key={activeScenario.id}
-                scenario={activeScenario}
-                onBackToCatalog={openScenariosCatalog}
-                onCompleteCase={handleCompleteLegalCase}
-              />
-            )}
-          </div>
-        </section>
-
-        {/* 4. Игровая зона */}
-        <section className="content-section" id="games" aria-labelledby="games-heading">
-          <div className="section-container">
-            <div className="section-header-row">
-              <div className="section-title-wrap">
-                <div className="section-badge-line">
-                  <span className="section-num-pill">04 / 05</span>
-                  <span className="section-category-tag">ОБРАЗОВАТЕЛЬНЫЙ ИНТЕРАКТИВ</span>
-                </div>
-                <h2 id="games-heading" className="section-main-title">
-                  Игровая зона
-                </h2>
-                <p className="section-main-desc">
-                  Раздел с образовательными играми и заданиями.
-                </p>
-              </div>
-              <div className="section-header-icon" aria-hidden="true">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="6" y1="12" x2="10" y2="12" />
-                  <line x1="8" y1="10" x2="8" y2="14" />
-                  <line x1="15" y1="13" x2="15.01" y2="13" />
-                  <line x1="18" y1="11" x2="18.01" y2="11" />
-                  <rect x="2" y="6" width="20" height="12" rx="6" />
-                </svg>
-              </div>
-            </div>
-
-            {gamesView === 'menu' && (
-              <>
-                <div className="games-grid">
-                  {gameCards.map((card, index) => {
-                    const isCrosswordCard = card.id === 'game-crossword'
-                    const isWheelCard = card.id === 'game-wheel'
-                    const isTimeCard = card.id === 'game-time'
-                    const isInteractiveCard = isCrosswordCard || isWheelCard || isTimeCard
-                    const handleOpenCard = isCrosswordCard
-                      ? openCrosswordsCatalog
-                      : isWheelCard
-                      ? openWheelGame
-                      : isTimeCard
-                      ? openTimedGame
-                      : undefined
-
-                    return (
-                      <article
-                        key={card.id}
-                        className={`edu-card edu-card-tone-${(index + 1) % 3} ${
-                          isInteractiveCard ? 'game-card-interactive' : ''
-                        }`}
-                        onClick={handleOpenCard}
-                        role={isInteractiveCard ? 'button' : undefined}
-                        tabIndex={isInteractiveCard ? 0 : undefined}
-                        onKeyDown={
-                          handleOpenCard
-                            ? (e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault()
-                                  handleOpenCard()
-                                }
-                              }
-                            : undefined
-                        }
-                        aria-label={
-                          isCrosswordCard
-                            ? 'Открыть каталог юридических кроссвордов'
-                            : isWheelCard
-                            ? 'Открыть игру Колесо-фортуна'
-                            : isTimeCard
-                            ? 'Открыть игру Испытание на время'
-                            : undefined
-                        }
-                      >
-                        <div className="card-topline">
-                          <span className="card-icon-badge" aria-hidden="true">
-                            {card.icon}
-                          </span>
-                          <span className="card-pill-tag">
-                            {isCrosswordCard
-                              ? `${crosswordPuzzles.length} кроссворда · ${completedCrosswordsCount}/${crosswordPuzzles.length}`
-                              : card.tag}
-                          </span>
-                        </div>
-                        <h3 className="card-heading">{card.title}</h3>
-                        <p className="edu-card-desc">{card.description}</p>
-                        <div className="card-action-row">
-                          {isCrosswordCard ? (
-                            <button
-                              type="button"
-                              className="card-action-btn primary-start-btn"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openCrosswordsCatalog()
-                              }}
-                            >
-                              <span>Открыть кроссворды</span>
-                              <span aria-hidden="true">→</span>
-                            </button>
-                          ) : isWheelCard ? (
-                            <button
-                              type="button"
-                              className="card-action-btn primary-start-btn"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openWheelGame()
-                              }}
-                            >
-                              <span>Крутить колесо</span>
-                              <span aria-hidden="true">→</span>
-                            </button>
-                          ) : isTimeCard ? (
-                            <button
-                              type="button"
-                              className="card-action-btn primary-start-btn"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openTimedGame()
-                              }}
-                            >
-                              <span>Открыть испытание</span>
-                              <span aria-hidden="true">→</span>
-                            </button>
-                          ) : (
-                            <span className="card-status-pill">
-                              <span className="status-dot" aria-hidden="true" />
-                              <span>{card.status}</span>
-                            </span>
-                          )}
-                        </div>
-                      </article>
-                    )
-                  })}
-                </div>
-
-                <div className="section-status-banner">
-                  <span className="status-dot" aria-hidden="true" />
-                  <span>
-                    Все три образовательные игры активны: «Юридический кроссворд», «Колесо-фортуна» (10 секторов) и «Испытание на время» (12 вопросов за 5 минут по ГК РК).
-                  </span>
-                </div>
-              </>
-            )}
-
-            {gamesView === 'crosswords-catalog' && (
-              <CrosswordCatalog
-                progressMap={crosswordProgress}
-                onSelectPuzzle={openCrosswordPuzzle}
-                onBackToGames={backToGamesMenu}
-              />
-            )}
-
-            {gamesView === 'crossword-play' && activeCrossword && (
-              <CrosswordGame
-                key={activeCrossword.id}
-                puzzle={activeCrossword}
-                progress={crosswordProgress[activeCrossword.id]}
-                onBackToCatalog={openCrosswordsCatalog}
-                onRecordResult={handleRecordCrosswordResult}
-              />
-            )}
-
-            {gamesView === 'wheel-play' && (
-              <FortuneWheelGame onBackToGames={backToGamesMenu} />
-            )}
-
-            {gamesView === 'time-play' && (
-              <TimedQuizGame onBackToGames={backToGamesMenu} />
-            )}
-          </div>
-        </section>
-
-        {/* 5. Мои достижения */}
-        <section className="content-section" id="achievements" aria-labelledby="achievements-heading">
-          <div className="section-container">
-            <div className="section-header-row">
-              <div className="section-title-wrap">
-                <div className="section-badge-line">
-                  <span className="section-num-pill">05 / 05</span>
-                  <span className="section-category-tag">ПРОГРЕСС ОБУЧЕНИЯ</span>
-                </div>
-                <h2 id="achievements-heading" className="section-main-title">
-                  Мои достижения
-                </h2>
-                <p className="section-main-desc">
-                  Раздел для отображения учебного прогресса пользователя.
-                </p>
-              </div>
-              <div className="section-header-icon" aria-hidden="true">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-                  <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-                  <path d="M4 22h16" />
-                  <path d="M10 14.66V17c0 .55-.45 1-1 1H8v2h8v-2h-1c-.55 0-1-.45-1-1v-2.34" />
-                  <path d="M18 4H6v7a6 6 0 0 0 12 0V4Z" />
-                </svg>
-              </div>
-            </div>
-
-            <div className="demo-notice-banner">
-              <span className="demo-notice-icon" aria-hidden="true">ℹ</span>
-              <div>
-                <strong>Макет отображения результатов:</strong> значения ниже являются <span className="demo-badge">Примером данных</span> для визуальной демонстрации интерфейса и не представляют реальные результаты.
-              </div>
-            </div>
-
-            {/* Метрики прогресса */}
-            <div className="stats-grid">
-              {liveStats.map((st) => (
-                <div key={st.id} className={`stat-card stat-card--${st.id.replace('stat-', '')}`}>
-                  <div className="stat-card-top">
-                    <span className="stat-icon-wrap" aria-hidden="true">
-                      {st.icon}
-                    </span>
-                    <span className="demo-tag">
-                      {totalEarnedLocalXp > 0 ? 'Локальный прогресс' : 'Пример данных'}
-                    </span>
-                  </div>
-                  <span className="stat-label">{st.label}</span>
-                  <span className="stat-value">{st.value}</span>
-                  <span className="stat-subtext">{st.subtext}</span>
-                  {typeof st.progress === 'number' && (
-                    <div className="stat-progress">
-                      <div className="stat-progress-meta">
-                        <span>До следующего уровня</span>
-                        <span>{st.progress}%</span>
-                      </div>
-                      <div className="stat-progress-bar-wrap" aria-label="Прогресс до следующего уровня">
-                        <div className="stat-progress-bar-fill" style={{ width: `${st.progress}%` }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Список достижений */}
-            <div className="achievements-box">
-              <div className="achievements-box-header">
-                <div className="achievements-heading-copy">
-                  <h3 className="achievements-box-title">Список достижений</h3>
-                  <p className="achievements-box-note">
-                    Открыто {unlockedAchievements} из {liveAchievements.length}
-                  </p>
-                </div>
-                <div className="achievements-summary">
-                  <span className="demo-tag">
-                    {totalCompletedLocalTasks > 0 ? 'Локальный прогресс' : 'Пример данных'}
-                  </span>
-                  <div
-                    className="achievements-meter"
-                    role="img"
-                    aria-label={`Открыто ${unlockedAchievements} из ${liveAchievements.length} достижений`}
-                  >
-                    <span
-                      className="achievements-meter-fill"
-                      style={{ width: `${(unlockedAchievements / liveAchievements.length) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="achievements-grid">
-                {liveAchievements.map((ach) => (
-                  <div
-                    key={ach.id}
-                    className={`achievement-card ${ach.completed ? 'completed' : 'locked'}`}
-                  >
-                    <div className="achievement-icon-wrap" aria-hidden="true">
-                      <span>{ach.icon}</span>
-                    </div>
-                    <div className="achievement-info">
-                      <h4 className="achievement-title">{ach.title}</h4>
-                      <p className="achievement-desc">{ach.description}</p>
-                      <span className={`achievement-status-tag ${ach.completed ? 'tag-done' : 'tag-pending'}`}>
-                        {ach.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="section-status-banner">
-              <span className="status-dot" aria-hidden="true" />
-              <span>100% конфиденциальность: реальный прогресс будет сохраняться локально в браузере без регистрации и сбора персональных данных.</span>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      {/* Footer с неизменной юридической оговоркой */}
-      <footer className="footer" id="footer">
-        <div className="footer-disclaimer-card">
-          <div className="disclaimer-header">
-            <span className="disclaimer-icon-badge" aria-hidden="true">
-              <svg
-                width="19"
-                height="19"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            </span>
-            <h3 className="disclaimer-title">Правовая оговорка</h3>
-          </div>
-
-          <div className="disclaimer-content">
-            <p>
-              Law Quiz KZ — интерактивный образовательный проект, созданный для изучения гражданского права Республики Казахстан. Все материалы носят исключительно учебный и информационный характер и не являются профессиональной юридической консультацией.
-            </p>
-            <p>
-              Представленные юридические ситуации, персонажи и примеры договоров являются вымышленными. Информация основана на Гражданском кодексе РК. Актуальность правовых норм рекомендуется проверять в официальной системе «Әділет»:{' '}
-              <a
-                href="https://adilet.zan.kz/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="disclaimer-link"
-              >
-                https://adilet.zan.kz/
-              </a>.
-            </p>
-            <p>
-              Сайт не требует регистрации и не собирает персональные данные пользователей. Результаты обучения сохраняются локально в браузере.
-            </p>
-          </div>
+        {/* 5. Опыт и уровень (с переходом на отдельную страницу достижений) */}
+        <AchievementsSection
+          xpProgress={xpProgress}
+          isFreshBaseline={isFreshBaseline}
+          onOpenAchievementsPage={openAchievementsPage}
+        />
+          </>
+        )}
         </div>
+      </main>
+      </div>
 
-        <div className="footer-bottom-bar">
-          <a
-            className="brand footer-brand"
-            href="#home"
-            onClick={(e) => handleNavClick(e, 'home')}
-            aria-label="Law Quiz KZ — наверх"
-          >
-            <span className="brand-mark">LQ</span>
-            <span>
-              Law Quiz <span className="brand-accent">KZ</span>
-            </span>
-          </a>
-          <p className="copyright-text">© 2026 Law Quiz KZ | Образовательный проект.</p>
+      {/* Полноширинная нижняя зона с плавным затемнением фона и неизменной юридической оговоркой */}
+      <footer className="footer-atmosphere-zone" id="footer">
+        <div className="footer-inner footer">
+          <div className="footer-disclaimer-card">
+            <div className="disclaimer-header">
+              <span className="disclaimer-icon-badge" aria-hidden="true">
+                <svg
+                  width="19"
+                  height="19"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </span>
+              <h3 className="disclaimer-title">Правовая оговорка</h3>
+            </div>
+
+            <div className="disclaimer-content">
+              <p>
+                Law Quiz KZ — интерактивный образовательный проект, созданный для изучения гражданского права Республики Казахстан. Все материалы носят исключительно учебный и информационный характер и не являются профессиональной юридической консультацией.
+              </p>
+              <p>
+                Представленные юридические ситуации, персонажи и примеры договоров являются вымышленными. Информация основана на Гражданском кодексе РК. Актуальность правовых норм рекомендуется проверять в официальной системе «Әділет»:{' '}
+                <a
+                  href="https://adilet.zan.kz/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="disclaimer-link"
+                >
+                  https://adilet.zan.kz/
+                </a>.
+              </p>
+              <p>
+                Сайт не требует регистрации и не собирает персональные данные пользователей. Результаты обучения сохраняются локально в браузере.
+              </p>
+            </div>
+          </div>
+
+          <div className="footer-bottom-bar">
+            <a
+              className="brand footer-brand"
+              href="#home"
+              onClick={(e) => handleNavClick(e, 'home')}
+              aria-label="Law Quiz KZ — наверх"
+            >
+              <span className="brand-mark">LQ</span>
+              <span>
+                Law Quiz <span className="brand-accent">KZ</span>
+              </span>
+            </a>
+            <p className="copyright-text">© 2026 Law Quiz KZ | Образовательный проект.</p>
+          </div>
         </div>
       </footer>
-    </div>
+
+      {/* Уведомления единой системы XP, достижений и повышения уровня */}
+      {(xpToasts.length > 0 || activeAchievementToast !== null) && (
+        <div
+          className="xp-toast-stack"
+          role="region"
+          aria-live="polite"
+          aria-label="Уведомления о начислении опыта и достижениях"
+        >
+          {activeAchievementToast && (
+            <div
+              key={`ach-${activeAchievementToast.id}`}
+              className={`xp-toast ach-unlock-toast ach-unlock--${activeAchievementToast.rarity}`}
+              role="status"
+            >
+              <span className="ach-unlock-icon" aria-hidden="true">
+                {activeAchievementToast.icon}
+              </span>
+              <div className="xp-toast-body">
+                <div className="ach-unlock-topline">
+                  <span className="ach-unlock-eyebrow">Достижение получено!</span>
+                  <span
+                    className={`ach2-rarity-badge rarity-${activeAchievementToast.rarity}`}
+                  >
+                    {RARITY_LABELS[activeAchievementToast.rarity]}
+                  </span>
+                  {typeof activeAchievementToast.xpReward === 'number' &&
+                    activeAchievementToast.xpReward > 0 && (
+                      <span className="ach2-xp-reward-pill">
+                        +{activeAchievementToast.xpReward} XP
+                      </span>
+                    )}
+                </div>
+                <strong className="xp-toast-title">{activeAchievementToast.title}</strong>
+                <span className="xp-toast-sub">{activeAchievementToast.description}</span>
+              </div>
+              <button
+                type="button"
+                className="xp-toast-close"
+                onClick={() => setActiveAchievementToast(null)}
+                aria-label="Закрыть уведомление о достижении"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {xpToasts.map((toast) => (
+            <div
+              key={toast.id}
+              className={`xp-toast xp-toast--${toast.kind}`}
+              role="status"
+            >
+              <span className="xp-toast-icon" aria-hidden="true">
+                {toast.kind === 'levelup'
+                  ? '🏆'
+                  : toast.kind === 'xp'
+                  ? '★'
+                  : toast.kind === 'reset'
+                  ? '↺'
+                  : 'ℹ'}
+              </span>
+              <div className="xp-toast-body">
+                <strong className="xp-toast-title">{toast.title}</strong>
+                {toast.subtitle && (
+                  <span className="xp-toast-sub">{toast.subtitle}</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="xp-toast-close"
+                onClick={() => dismissToast(toast.id)}
+                aria-label="Закрыть уведомление"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 

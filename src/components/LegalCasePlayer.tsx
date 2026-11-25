@@ -317,10 +317,12 @@ export function LegalCasePlayer({
                 Результат: {finalScore} из 2 верных решений
               </span>
               {xpNotice && xpNotice.gained > 0 ? (
-                <span className="cw-xp-gained-pill">+{xpNotice.gained} XP начислено</span>
+                <span className="cw-xp-gained-pill">
+                  Задание завершено! +{xpNotice.gained} XP
+                </span>
               ) : (
                 <span className="cw-xp-neutral-pill">
-                  Опыт за это дело уже начислен ранее
+                  Вы уже получили опыт за это задание
                 </span>
               )}
             </div>
@@ -432,11 +434,6 @@ export function LegalCasePlayer({
                 </span>
                 <span aria-hidden="true">↗</span>
               </a>
-              {scenario.conclusion.needsLawyerCheck && (
-                <span className="topic-verify-pill status-review">
-                  <span aria-hidden="true">⚠</span> Рекомендуется контрольная сверка юриста
-                </span>
-              )}
             </div>
           </section>
 

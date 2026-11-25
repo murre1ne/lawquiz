@@ -26,9 +26,15 @@ interface CardResult {
 
 interface SortingInteractiveProps {
   onExit: () => void
+  onComplete: (score: number) => {
+    xpGainedNow: number
+    alreadyCompleted: boolean
+    leveledUp: boolean
+    newLevel: number
+  }
 }
 
-export function SortingInteractive({ onExit }: SortingInteractiveProps) {
+export function SortingInteractive({ onExit, onComplete }: SortingInteractiveProps) {
   const [roundKey, setRoundKey] = useState(0)
   const cards = useMemo(() => generateSortingRound(), [roundKey])
 
@@ -37,6 +43,10 @@ export function SortingInteractive({ onExit }: SortingInteractiveProps) {
   const [chosenCategoryId, setChosenCategoryId] = useState<string | null>(null)
   const [isAnswered, setIsAnswered] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
+  const [xpAward, setXpAward] = useState<{
+    gained: number
+    alreadyCompleted: boolean
+  } | null>(null)
 
   const currentCard = cards[currentIndex]
   const correctCategory = sortingCategories.find(
@@ -57,13 +67,16 @@ export function SortingInteractive({ onExit }: SortingInteractiveProps) {
     setIsAnswered(true)
   }
 
-  // ── Следующая карточка ──────────────────────────────────────────────
+  // ── Следующая карточка (начисление XP после завершения всех 10 карточек) ─
   const handleNext = () => {
     if (currentIndex + 1 < cards.length) {
       setCurrentIndex((i) => i + 1)
       setChosenCategoryId(null)
       setIsAnswered(false)
     } else {
+      const finalScore = results.filter((r) => r.isCorrect).length
+      const res = onComplete(finalScore)
+      setXpAward({ gained: res.xpGainedNow, alreadyCompleted: res.alreadyCompleted })
       setIsCompleted(true)
     }
   }
@@ -75,6 +88,7 @@ export function SortingInteractive({ onExit }: SortingInteractiveProps) {
     setChosenCategoryId(null)
     setIsAnswered(false)
     setIsCompleted(false)
+    setXpAward(null)
     setRoundKey((k) => k + 1)
   }
 
@@ -113,6 +127,19 @@ export function SortingInteractive({ onExit }: SortingInteractiveProps) {
               <span className="result-score-total">/ 10</span>
             </div>
             <span className="result-score-label">Верных распределений</span>
+            {xpAward && (
+              <div className="xp-inline-feedback">
+                {xpAward.gained > 0 ? (
+                  <span className="cw-xp-gained-pill">
+                    Задание завершено! +{xpAward.gained} XP
+                  </span>
+                ) : (
+                  <span className="cw-xp-neutral-pill">
+                    Вы уже получили опыт за это задание
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Разбор карточек */}

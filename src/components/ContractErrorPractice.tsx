@@ -8,15 +8,28 @@ import {
 
 interface ContractErrorPracticeProps {
   onBackToPractice: () => void
+  onComplete: (score: number) => {
+    xpGainedNow: number
+    alreadyCompleted: boolean
+    leveledUp: boolean
+    newLevel: number
+  }
 }
 
-export function ContractErrorPractice({ onBackToPractice }: ContractErrorPracticeProps) {
+export function ContractErrorPractice({
+  onBackToPractice,
+  onComplete,
+}: ContractErrorPracticeProps) {
   const [phase, setPhase] = useState<ContractAuditPhase>('intro')
   const [currentIndex, setCurrentIndex] = useState<number>(0)
   const [selectedClause, setSelectedClause] = useState<1 | 2 | 3 | 4 | null>(null)
   const [isChecked, setIsChecked] = useState<boolean>(false)
   const [validationMessage, setValidationMessage] = useState<string | null>(null)
   const [records, setRecords] = useState<ContractAuditRecord[]>([])
+  const [xpAward, setXpAward] = useState<{
+    gained: number
+    alreadyCompleted: boolean
+  } | null>(null)
 
   // Защита от повторного начисления баллов за один и тот же договор
   const scoredContractIdsRef = useRef<Set<string>>(new Set())
@@ -32,6 +45,7 @@ export function ContractErrorPractice({ onBackToPractice }: ContractErrorPractic
     setIsChecked(false)
     setValidationMessage(null)
     setRecords([])
+    setXpAward(null)
     setPhase('active')
   }
 
@@ -75,6 +89,9 @@ export function ContractErrorPractice({ onBackToPractice }: ContractErrorPractic
       const el = document.getElementById('practice')
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
     } else {
+      const finalScore = records.filter((r) => r.isCorrect).length
+      const res = onComplete(finalScore)
+      setXpAward({ gained: res.xpGainedNow, alreadyCompleted: res.alreadyCompleted })
       setPhase('results')
       const el = document.getElementById('practice')
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -386,6 +403,19 @@ export function ContractErrorPractice({ onBackToPractice }: ContractErrorPractic
             <p className="result-subtitle">
               Аудит четырёх учебных договоров завершён. Ниже приведены ваши итоги и краткая сводка по каждому документу.
             </p>
+            {xpAward && (
+              <div className="xp-inline-feedback">
+                {xpAward.gained > 0 ? (
+                  <span className="cw-xp-gained-pill">
+                    Задание завершено! +{xpAward.gained} XP
+                  </span>
+                ) : (
+                  <span className="cw-xp-neutral-pill">
+                    Вы уже получили опыт за это задание
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="ca-results-metrics">

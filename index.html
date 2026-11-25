@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" class="lqkz-booting">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,13 +8,22 @@
     <title>Law Quiz KZ — изучай гражданское право</title>
     <script>
       try {
-        if (localStorage.getItem('lqkz-theme') === 'dark') {
+        var isDark = localStorage.getItem('lqkz-theme') === 'dark'
+        if (isDark) {
           document.documentElement.setAttribute('data-theme', 'dark')
           document.documentElement.style.colorScheme = 'dark'
+          document.documentElement.style.backgroundColor = '#0b1512'
           var themeMeta = document.querySelector('meta[name="theme-color"]')
           if (themeMeta) themeMeta.setAttribute('content', '#0c1412')
+        } else {
+          document.documentElement.style.backgroundColor = '#f6fbf8'
         }
       } catch (e) {}
+      // Защитный таймер: снимает стартовый щит даже при непредвиденной ошибке загрузки скриптов
+      window.setTimeout(function () {
+        document.documentElement.classList.remove('lqkz-booting')
+        document.documentElement.style.backgroundColor = ''
+      }, 4000)
     </script>
   </head>
   <body>

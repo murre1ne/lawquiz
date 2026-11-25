@@ -1,4 +1,8 @@
-import { CROSSWORD_XP_PER_WORD, crosswordPuzzles, type CrosswordPuzzle } from '../data/crosswordData'
+import {
+  CROSSWORD_COMPLETION_XP,
+  crosswordPuzzles,
+  type CrosswordPuzzle,
+} from '../data/crosswordData'
 import type { CrosswordProgressMap } from '../data/crosswordProgress'
 
 interface CrosswordCatalogProps {
@@ -17,9 +21,9 @@ export function CrosswordCatalog({
     (sum, p) => sum + (progressMap[p.id]?.xpEarned ?? 0),
     0
   )
-  const maxPossibleXp = crosswordPuzzles.reduce(
-    (sum, p) => sum + p.words.length * CROSSWORD_XP_PER_WORD,
-    0
+  const maxPossibleXp = Math.max(
+    totalEarnedXp,
+    crosswordPuzzles.length * CROSSWORD_COMPLETION_XP
   )
 
   return (
@@ -46,9 +50,6 @@ export function CrosswordCatalog({
             Выберите тематический кроссворд по Гражданскому кодексу Республики Казахстан. В каждом задании 5 пересекающихся терминов со ссылками на статьи в системе «Әділет».
           </p>
         </div>
-        <span className="topic-verify-pill status-review">
-          <span aria-hidden="true">⚠</span> Материалы требуют юридической проверки
-        </span>
       </div>
 
       <div className="cw-catalog-grid">
@@ -57,7 +58,7 @@ export function CrosswordCatalog({
           const bestScore = prog?.bestScore ?? 0
           const isCompleted = prog?.completed ?? false
           const xpEarned = prog?.xpEarned ?? 0
-          const maxXp = puzzle.words.length * CROSSWORD_XP_PER_WORD
+          const maxXp = Math.max(xpEarned, CROSSWORD_COMPLETION_XP)
 
           let statusLabel = 'Не начат'
           let statusClass = 'cw-status-idle'

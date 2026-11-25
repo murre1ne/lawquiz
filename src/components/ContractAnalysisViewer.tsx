@@ -399,10 +399,12 @@ export function ContractAnalysisViewer({
                 {contract.contractLabel} · Изучено 5 из 5 этапов
               </span>
               {xpNotice && xpNotice.gained > 0 ? (
-                <span className="cw-xp-gained-pill">+{xpNotice.gained} XP начислено</span>
+                <span className="cw-xp-gained-pill">
+                  Задание завершено! +{xpNotice.gained} XP
+                </span>
               ) : (
                 <span className="cw-xp-neutral-pill">
-                  Договор уже был изучен ранее · прогресс сохранён
+                  Вы уже получили опыт за это задание
                 </span>
               )}
             </div>

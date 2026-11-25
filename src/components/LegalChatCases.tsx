@@ -306,14 +306,12 @@ function ChatCasePlayView({
 
                 <div className="chat-result-xp">
                   {xpNotice && xpNotice.gained > 0 ? (
-                    <span className="cw-xp-gained-pill">+{xpNotice.gained} XP начислено</span>
-                  ) : isCorrect ? (
-                    <span className="cw-xp-neutral-pill">
-                      Награда за это дело уже начислена ранее
+                    <span className="cw-xp-gained-pill">
+                      Задание завершено! +{xpNotice.gained} XP
                     </span>
                   ) : (
                     <span className="cw-xp-neutral-pill">
-                      Изучите разбор и попробуйте снова
+                      Вы уже получили опыт за это задание
                     </span>
                   )}
                 </div>

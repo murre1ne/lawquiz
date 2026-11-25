@@ -4,7 +4,7 @@
  * Официальный источник: Информационно-правовая система нормативных правовых актов РК «Әділет» (https://adilet.zan.kz/)
  */
 
-export type VerificationStatus = 'verified' | 'needs_review'
+export type VerificationStatus = 'verified'
 
 export interface LegalTerm {
   term: string

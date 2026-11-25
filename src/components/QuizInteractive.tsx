@@ -35,9 +35,15 @@ function generateQuizRound(): ShuffledQuestion[] {
 
 interface QuizInteractiveProps {
   onExit: () => void
+  onComplete: (score: number) => {
+    xpGainedNow: number
+    alreadyCompleted: boolean
+    leveledUp: boolean
+    newLevel: number
+  }
 }
 
-export function QuizInteractive({ onExit }: QuizInteractiveProps) {
+export function QuizInteractive({ onExit, onComplete }: QuizInteractiveProps) {
   const [roundKey, setRoundKey] = useState(0)
   const questions = useMemo(() => generateQuizRound(), [roundKey])
 
@@ -51,6 +57,10 @@ export function QuizInteractive({ onExit }: QuizInteractiveProps) {
     }>
   >([])
   const [isCompleted, setIsCompleted] = useState(false)
+  const [xpAward, setXpAward] = useState<{
+    gained: number
+    alreadyCompleted: boolean
+  } | null>(null)
 
   const currentQ = questions[currentIndex]
   const isAnswered = selectedOption !== null
@@ -70,22 +80,26 @@ export function QuizInteractive({ onExit }: QuizInteractiveProps) {
     ])
   }
 
-  // Переход к следующему вопросу или завершение
+  // Переход к следующему вопросу или завершение (начисление XP строго после всех 10 вопросов)
   const handleNext = () => {
     if (currentIndex + 1 < questions.length) {
       setCurrentIndex((prev) => prev + 1)
       setSelectedOption(null)
     } else {
+      const finalScore = answersHistory.filter((a) => a.isCorrect).length
+      const res = onComplete(finalScore)
+      setXpAward({ gained: res.xpGainedNow, alreadyCompleted: res.alreadyCompleted })
       setIsCompleted(true)
     }
   }
 
-  // Перезапуск с новой выборкой
+  // Перезапуск с новой выборкой (не обнуляет полученный опыт)
   const handleRestart = () => {
     setCurrentIndex(0)
     setSelectedOption(null)
     setAnswersHistory([])
     setIsCompleted(false)
+    setXpAward(null)
     setRoundKey((k) => k + 1)
   }
 
@@ -243,6 +257,19 @@ export function QuizInteractive({ onExit }: QuizInteractiveProps) {
               <span className="result-score-total">/ 10</span>
             </div>
             <span className="result-score-label">Правильных ответов</span>
+            {xpAward && (
+              <div className="xp-inline-feedback">
+                {xpAward.gained > 0 ? (
+                  <span className="cw-xp-gained-pill">
+                    Задание завершено! +{xpAward.gained} XP
+                  </span>
+                ) : (
+                  <span className="cw-xp-neutral-pill">
+                    Вы уже получили опыт за это задание
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Список ответов раунда для работы над ошибками */}

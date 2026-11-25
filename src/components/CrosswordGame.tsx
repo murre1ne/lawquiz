@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import {
-  CROSSWORD_XP_PER_WORD,
+  CROSSWORD_COMPLETION_XP,
   type CrosswordPuzzle,
   type CrosswordWord,
 } from '../data/crosswordData'
@@ -368,7 +368,7 @@ export function CrosswordGame({
             Кроссворд №{puzzle.number} · {puzzle.difficulty}
           </span>
           <span className="cw-xp-summary-pill">
-            ★ {progress?.xpEarned ?? 0} / {puzzle.words.length * CROSSWORD_XP_PER_WORD} XP
+            ★ {progress?.xpEarned ?? 0} / {Math.max(progress?.xpEarned ?? 0, CROSSWORD_COMPLETION_XP)} XP
           </span>
         </div>
       </div>
@@ -378,9 +378,6 @@ export function CrosswordGame({
         <div className="cw-header-block">
           <div className="cw-header-meta">
             <span className="cw-topic-pill">{puzzle.topic}</span>
-            <span className="topic-verify-pill status-review">
-              <span aria-hidden="true">⚠</span> Требует юридической проверки
-            </span>
           </div>
           <h3 className="cw-puzzle-title">
             Кроссворд №{puzzle.number}. «{puzzle.title}»
@@ -587,12 +584,14 @@ export function CrosswordGame({
                   <div className="cw-results-badges-line">
                     <span className="cw-percent-pill">Выполнено: {percent}%</span>
                     {lastXpAward && lastXpAward.gained > 0 ? (
-                      <span className="cw-xp-gained-pill">+{lastXpAward.gained} XP начислено</span>
+                      <span className="cw-xp-gained-pill">
+                        Задание завершено! +{lastXpAward.gained} XP
+                      </span>
                     ) : (
                       <span className="cw-xp-neutral-pill">
                         {lastXpAward?.alreadyMaxed
-                          ? 'Максимальный XP за этот кроссворд уже получен'
-                          : 'Новых баллов XP не начислено (защита от повторного начисления)'}
+                          ? 'Вы уже получили опыт за это задание'
+                          : `Для получения +${CROSSWORD_COMPLETION_XP} XP правильно заполните все ${puzzle.words.length} слов`}
                       </span>
                     )}
                   </div>

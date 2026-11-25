@@ -32,10 +32,21 @@ interface PairResult {
 }
 
 interface MatchingInteractiveProps {
+  alreadyCompletedBefore: boolean
   onExit: () => void
+  onComplete: (score: number) => {
+    xpGainedNow: number
+    alreadyCompleted: boolean
+    leveledUp: boolean
+    newLevel: number
+  }
 }
 
-export function MatchingInteractive({ onExit }: MatchingInteractiveProps) {
+export function MatchingInteractive({
+  alreadyCompletedBefore,
+  onExit,
+  onComplete,
+}: MatchingInteractiveProps) {
   const [roundKey, setRoundKey] = useState(0)
   const round = useMemo(() => generateMatchRound(), [roundKey])
 
@@ -48,6 +59,11 @@ export function MatchingInteractive({ onExit }: MatchingInteractiveProps) {
 
   // Анимация последнего выбора
   const [lastResult, setLastResult] = useState<boolean | null>(null)
+  const [xpAward, setXpAward] = useState<{
+    gained: number
+    alreadyCompleted: boolean
+    needsPerfect: boolean
+  } | null>(null)
 
   // Завершён ли раунд
   const isCompleted = results.length === round.items.length
@@ -78,10 +94,30 @@ export function MatchingInteractive({ onExit }: MatchingInteractiveProps) {
         defId: newDefId,
         isCorrect,
       }
-      setResults((prev) => [...prev, pair])
+      const nextResults = [...results, pair]
+      setResults(nextResults)
       setLastResult(isCorrect)
       setSelectedTermId(null)
       setSelectedDefId(null)
+
+      // Начисление XP строго при правильном завершении всех 5 пар
+      if (nextResults.length === round.items.length) {
+        const correctPairs = nextResults.filter((r) => r.isCorrect).length
+        if (correctPairs === round.items.length) {
+          const res = onComplete(correctPairs)
+          setXpAward({
+            gained: res.xpGainedNow,
+            alreadyCompleted: res.alreadyCompleted,
+            needsPerfect: false,
+          })
+        } else {
+          setXpAward({
+            gained: 0,
+            alreadyCompleted: alreadyCompletedBefore,
+            needsPerfect: !alreadyCompletedBefore,
+          })
+        }
+      }
     }
   }
 
@@ -91,6 +127,7 @@ export function MatchingInteractive({ onExit }: MatchingInteractiveProps) {
     setSelectedTermId(null)
     setSelectedDefId(null)
     setLastResult(null)
+    setXpAward(null)
     setRoundKey((k) => k + 1)
   }
 
@@ -144,6 +181,23 @@ export function MatchingInteractive({ onExit }: MatchingInteractiveProps) {
               <span className="result-score-total">/ 5</span>
             </div>
             <span className="result-score-label">Верных пар</span>
+            {xpAward && (
+              <div className="xp-inline-feedback">
+                {xpAward.gained > 0 ? (
+                  <span className="cw-xp-gained-pill">
+                    Задание завершено! +{xpAward.gained} XP
+                  </span>
+                ) : xpAward.needsPerfect ? (
+                  <span className="cw-xp-neutral-pill">
+                    Для получения +15 XP соедините все 5 пар без ошибок
+                  </span>
+                ) : (
+                  <span className="cw-xp-neutral-pill">
+                    Вы уже получили опыт за это задание
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Разбор пар раунда */}
