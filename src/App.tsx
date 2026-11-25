@@ -14,6 +14,11 @@ import { LegalSearchPreloader } from './components/LegalSearchPreloader'
 import { HeroTypewriterTitle } from './components/HeroTypewriterTitle'
 import { AmbientBackground } from './components/AmbientBackground'
 import { ScrollProgressBar } from './components/ScrollProgressBar'
+import { CursorTrail } from './components/CursorTrail'
+import {
+  RouteTransitionOverlay,
+  type RoutePageKey,
+} from './components/RouteTransitionOverlay'
 import { useScrollReveal } from './utils/useScrollReveal'
 import { crosswordPuzzles, type CrosswordPuzzle } from './data/crosswordData'
 import { legalCasesData, type LegalCaseScenario } from './data/legalCasesData'
@@ -77,6 +82,7 @@ const navItems = [
 
 function App() {
   const [isHeroReadyForTyping, setIsHeroReadyForTyping] = useState<boolean>(false)
+  const [isRouteTransitioning, setIsRouteTransitioning] = useState<boolean>(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false)
   const [activeSection, setActiveSection] = useState<string>('home')
   const [isLibraryPageOpen, setIsLibraryPageOpen] = useState<boolean>(false)
@@ -1165,7 +1171,7 @@ function App() {
     }
   }
 
-  const currentPageKey = isSettingsOpen
+  const currentPageKey: RoutePageKey = isSettingsOpen
     ? 'settings'
     : isLibraryPageOpen
     ? 'library'
@@ -1187,10 +1193,20 @@ function App() {
       {/* Живой ненавязчивый анимированный фон (вне переходов маршрутов — без мерцания) */}
       <AmbientBackground />
 
+      {/* Деликатный шлейф курсора (только на десктопе с мышью, без накопления DOM) */}
+      <CursorTrail />
+
       {/* Тонкий индикатор прокрутки страницы в самом верху окна */}
       <ScrollProgressBar routeKey={scrollRouteKey} />
 
       <LegalSearchPreloader onRevealStart={() => setIsHeroReadyForTyping(true)} />
+
+      {/* Компактная анимация перехода между разделами и при возврате на главную */}
+      <RouteTransitionOverlay
+        pageKey={currentPageKey}
+        enabled={isHeroReadyForTyping}
+        onTransitionStateChange={setIsRouteTransitioning}
+      />
 
       {/* Полноширинная верхняя панель (фон и нижняя граница на 100% ширины окна) */}
       <header className="topbar">
@@ -1411,7 +1427,12 @@ function App() {
       <div className="site-shell">
 
       <main className="site-main">
-        <div key={currentPageKey} className="page-transition-stage">
+        <div
+          key={currentPageKey}
+          className={`page-transition-stage ${
+            isRouteTransitioning ? 'is-route-transitioning' : ''
+          }`}
+        >
         {isSettingsOpen ? (
           <SettingsPage
             settings={siteSettings}

@@ -17366,3 +17366,390 @@ html[data-theme="dark"] .promo-expandable-card.is-expanded {
     transform: none !important;
   }
 }
+
+/* ==========================================================================
+   36. ДЕЛИКАТНЫЙ ШЛЕЙФ КУРСОРА И КОМПАКТНАЯ АНИМАЦИЯ ПЕРЕХОДА МЕЖДУ РАЗДЕЛАМИ
+   ========================================================================== */
+
+/* 36.1. Деликатный шлейф курсора (только мышь, без нагрузки и помех взаимодействию) */
+.cursor-trail-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+  contain: strict;
+}
+
+.cursor-trail-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 11px;
+  height: 11px;
+  margin-left: -5.5px;
+  margin-top: -5.5px;
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-100px, -100px, 0) scale(0.5);
+}
+
+.cursor-trail-dot--tone-0 {
+  background: radial-gradient(
+    circle,
+    rgba(27, 122, 76, 0.56) 0%,
+    rgba(16, 185, 129, 0.24) 48%,
+    rgba(16, 185, 129, 0) 78%
+  );
+}
+
+.cursor-trail-dot--tone-1 {
+  background: radial-gradient(
+    circle,
+    rgba(16, 185, 129, 0.52) 0%,
+    rgba(52, 211, 153, 0.22) 48%,
+    rgba(52, 211, 153, 0) 78%
+  );
+}
+
+.cursor-trail-dot--tone-2 {
+  background: radial-gradient(
+    circle,
+    rgba(13, 148, 136, 0.5) 0%,
+    rgba(20, 184, 166, 0.2) 48%,
+    rgba(20, 184, 166, 0) 78%
+  );
+}
+
+html[data-theme="dark"] .cursor-trail-dot--tone-0 {
+  background: radial-gradient(
+    circle,
+    rgba(52, 211, 153, 0.62) 0%,
+    rgba(16, 185, 129, 0.26) 48%,
+    rgba(16, 185, 129, 0) 78%
+  );
+}
+
+html[data-theme="dark"] .cursor-trail-dot--tone-1 {
+  background: radial-gradient(
+    circle,
+    rgba(110, 231, 183, 0.56) 0%,
+    rgba(52, 211, 153, 0.22) 48%,
+    rgba(52, 211, 153, 0) 78%
+  );
+}
+
+html[data-theme="dark"] .cursor-trail-dot--tone-2 {
+  background: radial-gradient(
+    circle,
+    rgba(45, 212, 191, 0.54) 0%,
+    rgba(13, 148, 136, 0.22) 48%,
+    rgba(13, 148, 136, 0) 78%
+  );
+}
+
+/* Полностью отключаем шлейф на сенсорных / мобильных устройствах и при reduced-motion */
+@media (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
+  .cursor-trail-layer {
+    display: none !important;
+  }
+}
+
+/* 36.2. Компактная анимация перехода между разделами (в эстетике «Правовой поиск») */
+.lqkz-route-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  pointer-events: auto;
+  background:
+    radial-gradient(420px 260px at 50% 48%, rgba(16, 185, 129, 0.09), transparent 72%),
+    rgba(244, 250, 246, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: lqkzRtOverlayIn 0.14s var(--ease-out-smooth) both;
+}
+
+.lqkz-route-transition.is-exiting {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s var(--ease-out-smooth);
+}
+
+html[data-theme="dark"] .lqkz-route-transition {
+  background:
+    radial-gradient(420px 260px at 50% 48%, rgba(16, 185, 129, 0.14), transparent 72%),
+    rgba(11, 20, 17, 0.78);
+}
+
+.lqkz-rt-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 196px;
+  max-width: min(270px, calc(100vw - 40px));
+  padding: 18px 24px 16px;
+  border-radius: 20px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(239, 249, 243, 0.94));
+  border: 1.5px solid rgba(27, 122, 76, 0.2);
+  box-shadow:
+    0 18px 42px rgba(20, 62, 42, 0.12),
+    0 2px 8px rgba(20, 62, 42, 0.05);
+  animation: lqkzRtCardIn 0.18s var(--ease-out-smooth) both;
+}
+
+.lqkz-route-transition.is-exiting .lqkz-rt-card {
+  opacity: 0;
+  transform: translate3d(0, -4px, 0) scale(0.985);
+  transition:
+    opacity 0.18s ease-out,
+    transform 0.2s var(--ease-out-smooth);
+}
+
+html[data-theme="dark"] .lqkz-rt-card {
+  background: linear-gradient(160deg, rgba(18, 33, 27, 0.96), rgba(13, 25, 21, 0.94));
+  border-color: rgba(52, 211, 153, 0.26);
+  box-shadow:
+    0 20px 46px rgba(0, 0, 0, 0.44),
+    0 2px 10px rgba(0, 0, 0, 0.26);
+}
+
+/* Центральная мини-композиция: мини-документ + лёгкий проход лупы */
+.lqkz-rt-emblem {
+  position: relative;
+  width: 68px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+}
+
+.lqkz-rt-halo {
+  position: absolute;
+  width: 66px;
+  height: 66px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.22) 0%, rgba(16, 185, 129, 0) 72%);
+  animation: lqkzRtHaloPulse 0.48s ease-out both;
+}
+
+.lqkz-rt-mini-doc {
+  position: relative;
+  width: 40px;
+  height: 48px;
+  padding: 11px 7px 9px;
+  border-radius: 10px;
+  background: linear-gradient(160deg, #ffffff 0%, #f1faf4 100%);
+  border: 1.5px solid rgba(27, 122, 76, 0.26);
+  box-shadow: 0 6px 16px rgba(20, 62, 42, 0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+html[data-theme="dark"] .lqkz-rt-mini-doc {
+  background: linear-gradient(160deg, #162a22 0%, #10201a 100%);
+  border-color: rgba(52, 211, 153, 0.32);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.34);
+}
+
+.lqkz-rt-doc-line {
+  --rt-line-base: rgba(27, 122, 76, 0.22);
+  --rt-line-active: rgba(16, 185, 129, 0.85);
+  display: block;
+  height: 3.5px;
+  border-radius: 999px;
+  background: var(--rt-line-base);
+}
+
+html[data-theme="dark"] .lqkz-rt-doc-line {
+  --rt-line-base: rgba(110, 231, 183, 0.24);
+  --rt-line-active: rgba(52, 211, 153, 0.92);
+}
+
+.lqkz-rt-doc-line--1 {
+  width: 78%;
+  animation: lqkzRtLineGlow 0.42s ease-out 0.04s both;
+}
+
+.lqkz-rt-doc-line--2 {
+  width: 100%;
+  animation: lqkzRtLineGlow 0.42s ease-out 0.14s both;
+}
+
+.lqkz-rt-doc-line--3 {
+  width: 64%;
+  animation: lqkzRtLineGlow 0.42s ease-out 0.24s both;
+}
+
+.lqkz-rt-mini-loupe {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  filter: drop-shadow(0 4px 8px rgba(20, 62, 42, 0.18));
+  animation: lqkzRtLoupeSweep 0.46s cubic-bezier(0.25, 0.8, 0.35, 1) both;
+}
+
+html[data-theme="dark"] .lqkz-rt-mini-loupe circle {
+  stroke: #34d399;
+  fill: rgba(52, 211, 153, 0.24);
+}
+
+html[data-theme="dark"] .lqkz-rt-mini-loupe line {
+  stroke: #6ee7b7;
+}
+
+.lqkz-rt-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+}
+
+.lqkz-rt-label {
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: -0.015em;
+  color: #163022;
+  text-align: center;
+  line-height: 1.25;
+}
+
+html[data-theme="dark"] .lqkz-rt-label {
+  color: #e4f3ea;
+}
+
+.lqkz-rt-track {
+  position: relative;
+  width: 88px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(27, 122, 76, 0.14);
+  overflow: hidden;
+}
+
+html[data-theme="dark"] .lqkz-rt-track {
+  background: rgba(52, 211, 153, 0.18);
+}
+
+.lqkz-rt-bar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #1b7a4c, #10b981, #0d9488);
+  animation: lqkzRtProgress 0.38s var(--ease-out-smooth) both;
+}
+
+html[data-theme="dark"] .lqkz-rt-bar {
+  background: linear-gradient(90deg, #16a34a, #34d399, #2dd4bf);
+}
+
+/* Синхронизация плавного появления нового контента сразу после компактного перехода */
+.page-transition-stage {
+  opacity: 1;
+  transform: none;
+  animation: none;
+  transition:
+    opacity 0.26s var(--ease-out-smooth),
+    transform 0.28s var(--ease-out-smooth);
+}
+
+.page-transition-stage.is-route-transitioning {
+  opacity: 0;
+  transform: translate3d(0, 10px, 0);
+  animation: none;
+  transition: none;
+}
+
+@keyframes lqkzRtOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes lqkzRtCardIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.955);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes lqkzRtHaloPulse {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.86);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 0.82;
+    transform: scale(1);
+  }
+}
+
+@keyframes lqkzRtLineGlow {
+  0%,
+  100% {
+    background: var(--rt-line-base);
+  }
+  50% {
+    background: var(--rt-line-active);
+  }
+}
+
+@keyframes lqkzRtLoupeSweep {
+  0% {
+    transform: translate3d(-14px, -12px, 0) rotate(-6deg) scale(0.94);
+  }
+  55% {
+    transform: translate3d(2px, -3px, 0) rotate(3deg) scale(1.02);
+  }
+  100% {
+    transform: translate3d(0, 2px, 0) rotate(0deg) scale(1);
+  }
+}
+
+@keyframes lqkzRtProgress {
+  from {
+    transform: scaleX(0.06);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lqkz-route-transition,
+  .lqkz-rt-card,
+  .lqkz-rt-halo,
+  .lqkz-rt-doc-line,
+  .lqkz-rt-mini-loupe,
+  .lqkz-rt-bar {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .page-transition-stage,
+  .page-transition-stage.is-route-transitioning {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
